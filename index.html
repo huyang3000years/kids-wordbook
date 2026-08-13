@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>📚 小朋友英语单词本</title>
+<style>
+:root{
+  --bg:#FFF9F0; --card:#FFFFFF; --primary:#6C5CE7; --primary-l:#A29BFE;
+  --green:#6BCB77; --yellow:#FFD93D; --red:#FF7675; --blue:#74B9FF;
+  --orange:#FFA07A; --text:#2D3436; --text-l:#636E72; --radius:16px;
+  --shadow:0 4px 12px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  background:var(--bg);color:var(--text);font-size:18px;line-height:1.6;
+  -webkit-tap-highlight-color:transparent;max-width:680px;margin:0 auto;min-height:100vh;
+}
+.hidden{display:none!important}
+.page{padding:16px;padding-bottom:80px}
+/* Header */
+.app-header{
+  background:linear-gradient(135deg,var(--primary),var(--primary-l));
+  color:#fff;padding:20px 16px;border-radius:0 0 var(--radius) var(--radius);
+  text-align:center;margin-bottom:16px;
+}
+.app-header h1{font-size:28px;margin-bottom:4px}
+.app-header p{font-size:16px;opacity:.9}
+/* Warning */
+.warning-box{
+  background:#FFF3CD;border:2px solid #FFE08A;border-radius:var(--radius);
+  padding:12px 16px;margin-bottom:16px;font-size:16px;color:#856404;text-align:center;
+}
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:14px 20px;font-size:20px;border:none;border-radius:14px;cursor:pointer;
+  font-weight:600;min-height:52px;transition:transform .12s,box-shadow .12s;
+  font-family:inherit;
+}
+.btn:active{transform:scale(.95)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-gray{background:#DDD;color:#555}
+.btn-white{background:#fff;color:var(--text);border:2px solid #E0E0E0}
+.btn-large{padding:18px 28px;font-size:22px;min-height:60px;width:100%}
+.btn-small{padding:8px 14px;font-size:16px;min-height:40px;border-radius:10px}
+.btn-block{width:100%}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn-row .btn{flex:1;min-width:0}
+/* Cards */
+.card{
+  background:var(--card);border-radius:var(--radius);padding:16px;
+  box-shadow:var(--shadow);margin-bottom:12px;
+}
+.card-title{font-size:22px;font-weight:700;margin-bottom:8px}
+/* Library card */
+.lib-card{
+  background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;
+  box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;
+}
+.lib-icon{font-size:40px}
+.lib-info{flex:1;min-width:0}
+.lib-name{font-size:22px;font-weight:700}
+.lib-meta{font-size:14px;color:var(--text-l)}
+/* Group card */
+.group-card{
+  background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:10px;
+  box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;cursor:pointer;
+}
+.group-icon{font-size:32px}
+.group-info{flex:1}
+.group-name{font-size:20px;font-weight:600}
+.group-meta{font-size:14px;color:var(--text-l)}
+/* Word card */
+.word-card{
+  background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:12px;
+  box-shadow:var(--shadow);position:relative;overflow:hidden;
+}
+.word-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:6px;
+}
+.word-card.red::before{background:var(--red)}
+.word-card.yellow::before{background:var(--yellow)}
+.word-card.green::before{background:var(--green)}
+.word-card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
+.word-thumb{
+  width:70px;height:70px;border-radius:12px;background:#F0F0F0;
+  display:flex;align-items:center;justify-content:center;font-size:32px;
+  flex-shrink:0;overflow:hidden;cursor:pointer;
+}
+.word-thumb img{width:100%;height:100%;object-fit:cover}
+.word-main{flex:1;min-width:0}
+.word-english{font-size:26px;font-weight:700;color:var(--primary)}
+.word-chinese{
+  font-size:20px;color:var(--text-l);white-space:pre-wrap;word-break:break-word;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+}
+.word-card-actions{display:flex;gap:8px;margin-top:8px}
+/* Label buttons */
+.label-dot{
+  width:40px;height:40px;border-radius:50%;border:3px solid #E0E0E0;
+  cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:20px;transition:transform .12s;
+}
+.label-dot:active{transform:scale(.9)}
+.label-dot.red{background:var(--red);border-color:var(--red)}
+.label-dot.yellow{background:var(--yellow);border-color:var(--yellow)}
+.label-dot.green{background:var(--green);border-color:var(--green)}
+/* Form */
+.form-group{margin-bottom:16px}
+.form-label{font-size:20px;font-weight:600;margin-bottom:8px;display:block}
+.form-input{
+  width:100%;padding:14px 16px;font-size:20px;border:2px solid #E0E0E0;
+  border-radius:12px;font-family:inherit;background:#fff;
+}
+.form-input:focus{outline:none;border-color:var(--primary)}
+textarea.form-input{resize:vertical;min-height:60px}
+/* Image upload */
+.image-slots{display:flex;gap:10px;flex-wrap:wrap}
+.image-slot{
+  width:100px;height:100px;border-radius:12px;border:3px dashed #C0C0C0;
+  display:flex;align-items:center;justify-content:center;font-size:36px;
+  cursor:pointer;overflow:hidden;position:relative;background:#FAFAFA;
+}
+.image-slot img{width:100%;height:100%;object-fit:cover}
+.image-slot.filled{border-style:solid;border-color:var(--green)}
+.image-slot .remove-btn{
+  position:absolute;top:2px;right:2px;width:28px;height:28px;
+  background:rgba(255,0,0,.8);color:#fff;border:none;border-radius:50%;
+  font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+/* Label selector */
+.label-selector{display:flex;gap:10px}
+.label-option{
+  flex:1;padding:14px;border-radius:14px;border:3px solid #E0E0E0;
+  text-align:center;cursor:pointer;font-size:18px;font-weight:600;
+  background:#fff;transition:all .15s;
+}
+.label-option.active{border-width:3px}
+.label-option.red.active{background:var(--red);color:#fff;border-color:var(--red)}
+.label-option.yellow.active{background:var(--yellow);color:#fff;border-color:var(--yellow)}
+.label-option.green.active{background:var(--green);color:#fff;border-color:var(--green)}
+/* Placement checkboxes */
+.placement-section{
+  border:1px solid #E0E0E0;border-radius:12px;margin-bottom:8px;overflow:hidden;
+}
+.placement-lib{
+  padding:10px 14px;background:#F8F8F8;font-weight:700;font-size:18px;
+  display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
+}
+.placement-groups{overflow:hidden}
+.collapse-arrow{
+  margin-left:auto;font-size:14px;color:var(--text-l);
+  transition:transform .2s;display:inline-block;flex-shrink:0;
+}
+.collapse-arrow.open{transform:rotate(180deg)}
+.form-label-toggle{
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;user-select:none;
+}
+.placement-group{
+  padding:10px 14px 10px 28px;display:flex;align-items:center;gap:8px;
+  border-top:1px solid #F0F0F0;cursor:pointer;font-size:18px;
+}
+.placement-group input{width:22px;height:22px;cursor:pointer}
+.placement-group.checked{background:#F0FFF0}
+/* Review */
+.review-card{
+  background:var(--card);border-radius:var(--radius);padding:24px 16px;
+  box-shadow:var(--shadow);text-align:center;margin-bottom:16px;
+}
+.review-english{font-size:42px;font-weight:700;color:var(--primary);margin:12px 0}
+.review-chinese{
+  font-size:28px;color:var(--text-l);margin-bottom:16px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.review-images{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.review-img{
+  width:120px;height:120px;border-radius:12px;object-fit:cover;cursor:pointer;
+  box-shadow:var(--shadow);
+}
+.review-progress{
+  text-align:center;font-size:20px;font-weight:600;color:var(--text-l);margin-bottom:12px;
+}
+.review-labels{display:flex;gap:10px;margin-bottom:16px}
+.review-label-btn{
+  flex:1;padding:16px;border-radius:14px;border:3px solid #E0E0E0;
+  font-size:20px;font-weight:600;cursor:pointer;text-align:center;background:#fff;
+}
+.review-label-btn.red.active{background:var(--red);color:#fff;border-color:var(--red)}
+.review-label-btn.yellow.active{background:var(--yellow);color:#fff;border-color:var(--yellow)}
+.review-label-btn.green.active{background:var(--green);color:#fff;border-color:var(--green)}
+/* Image viewer */
+.image-viewer{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.88);z-index:1000;justify-content:center;align-items:center;padding:20px;
+}
+.image-viewer.show{display:flex}
+.image-viewer img{max-width:95%;max-height:90%;border-radius:12px}
+.image-viewer .close-hint{
+  position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+  color:#fff;font-size:16px;opacity:.7;
+}
+/* Modal */
+.modal-overlay{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.5);z-index:999;justify-content:center;align-items:center;padding:20px;
+}
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:#fff;border-radius:var(--radius);padding:24px;max-width:400px;width:100%;
+  text-align:center;
+}
+.modal-box p{font-size:20px;margin-bottom:20px}
+.modal-input{
+  width:100%;padding:14px;font-size:20px;border:2px solid #E0E0E0;
+  border-radius:12px;margin-bottom:16px;font-family:inherit;
+}
+.modal-buttons{display:flex;gap:10px}
+.modal-buttons .btn{flex:1}
+/* Toast */
+.toast{
+  position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(100px);
+  background:rgba(0,0,0,.82);color:#fff;padding:14px 28px;border-radius:14px;
+  font-size:18px;z-index:2000;transition:transform .3s;white-space:nowrap;
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+/* Empty state */
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-l)}
+.empty-state .emoji{font-size:64px;margin-bottom:12px}
+.empty-state p{font-size:20px}
+/* Back button */
+.back-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.back-btn{
+  background:#fff;border:2px solid #E0E0E0;border-radius:50%;width:48px;height:48px;
+  font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.back-title{font-size:24px;font-weight:700;flex:1}
+/* Stats */
+.stats-row{display:flex;gap:8px;margin-bottom:16px}
+.stat-box{
+  flex:1;background:var(--card);border-radius:12px;padding:12px;text-align:center;
+  box-shadow:var(--shadow);
+}
+.stat-num{font-size:28px;font-weight:700}
+.stat-label{font-size:14px;color:var(--text-l)}
+.stat-box.red .stat-num{color:var(--red)}
+.stat-box.yellow .stat-num{color:#E6A800}
+.stat-box.green .stat-num{color:var(--green)}
+/* Section title */
+.section-title{
+  font-size:22px;font-weight:700;margin:20px 0 12px;display:flex;
+  align-items:center;gap:8px;
+}
+/* Sort chip */
+.sort-chip{
+  margin-left:auto;background:#fff;border:2px solid #E0E0E0;border-radius:20px;
+  padding:6px 14px;font-size:15px;cursor:pointer;color:var(--text-l);
+  font-weight:600;font-family:inherit;transition:all .12s;flex-shrink:0;
+}
+.sort-chip:active{transform:scale(.95)}
+.sort-chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+/* Completion */
+.completion-screen{text-align:center;padding:40px 20px}
+.completion-screen .big-emoji{font-size:80px;margin-bottom:16px}
+.completion-screen h2{font-size:28px;color:var(--primary);margin-bottom:12px}
+.completion-screen p{font-size:20px;color:var(--text-l);margin-bottom:24px}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="page-home" class="page"></div>
+  <div id="page-library" class="page hidden"></div>
+  <div id="page-group" class="page hidden"></div>
+  <div id="page-word-edit" class="page hidden"></div>
+  <div id="page-all-words" class="page hidden"></div>
+  <div id="page-add-to-lib" class="page hidden"></div>
+  <div id="page-review-select" class="page hidden"></div>
+  <div id="page-review" class="page hidden"></div>
+</div>
+
+<div id="image-viewer" class="image-viewer" onclick="closeImageViewer()">
+  <img id="viewer-img" src="" alt="">
+  <div class="close-hint">点击任意位置关闭</div>
+</div>
+
+<div id="confirm-modal" class="modal-overlay">
+  <div class="modal-box">
+    <p id="confirm-text"></p>
+    <div class="modal-buttons">
+      <button class="btn btn-gray" onclick="closeConfirm(false)">取消</button>
+      <button class="btn btn-red" onclick="closeConfirm(true)">确定</button>
+    </div>
+  </div>
+</div>
+
+<div id="input-modal" class="modal-overlay">
+  <div class="modal-box">
+    <p id="input-modal-title"></p>
+    <input type="text" id="input-modal-field" class="modal-input" autocomplete="off">
+    <div class="modal-buttons">
+      <button class="btn btn-gray" onclick="closeInputModal(null)">取消</button>
+      <button class="btn btn-primary" onclick="submitInputModal()">确定</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="image-file-input" accept="image/*" multiple style="display:none">
+<input type="file" id="backup-file-input" accept=".json,application/json" style="display:none">
+
+<script>
+/* ========== State ========== */
+const LS_LIBRARIES = 'wordbook_libraries';
+const LS_WORDS = 'wordbook_words';
+const LS_SORT = 'wordbook_sort';
+const DB_NAME = 'KidsWordbookDB';
+const DB_VERSION = 1;
+const STORE_IMAGES = 'images';
+
+const state = {
+  libraries: [],
+  words: [],
+  currentPage: 'home',
+  currentLibraryId: null,
+  currentGroupId: null,
+  editingWord: null,
+  reviewWords: [],
+  reviewIndex: 0,
+  reviewFilter: null,
+};
+
+/* ========== localStorage ========== */
+function loadLibraries(){
+  try{ return JSON.parse(localStorage.getItem(LS_LIBRARIES)) || []; }
+  catch(e){ return []; }
+}
+function saveLibraries(){
+  localStorage.setItem(LS_LIBRARIES, JSON.stringify(state.libraries));
+}
+function loadWords(){
+  try{ return JSON.parse(localStorage.getItem(LS_WORDS)) || []; }
+  catch(e){ return []; }
+}
+function saveWords(){
+  localStorage.setItem(LS_WORDS, JSON.stringify(state.words));
+}
+
+/* ========== IndexedDB ========== */
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e=>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE_IMAGES)){
+        db.createObjectStore(STORE_IMAGES,{keyPath:'id'});
+      }
+    };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function dbSaveImage(img){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_IMAGES,'readwrite');
+    tx.objectStore(STORE_IMAGES).put(img);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+async function dbGetImagesByWord(wordId){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_IMAGES,'readonly');
+    const req = tx.objectStore(STORE_IMAGES).getAll();
+    req.onsuccess = ()=>resolve(req.result.filter(i=>i.wordId===wordId));
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function dbGetAllImages(){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_IMAGES,'readonly');
+    const req = tx.objectStore(STORE_IMAGES).getAll();
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function dbDeleteImage(id){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_IMAGES,'readwrite');
+    tx.objectStore(STORE_IMAGES).delete(id);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+async function dbDeleteImagesByWord(wordId){
+  const images = await dbGetImagesByWord(wordId);
+  for(const img of images){
+    await dbDeleteImage(img.id);
+  }
+}
+async function dbClearAllImages(){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_IMAGES,'readwrite');
+    tx.objectStore(STORE_IMAGES).clear();
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+
+/* ========== Utilities ========== */
+function genId(prefix){
+  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2,9);
+}
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function escapeHtml(text){
+  const d = document.createElement('div');
+  d.textContent = text || '';
+  return d.innerHTML;
+}
+
+/* ========== Sort Preferences ========== */
+function getSortPref(){
+  try{ return JSON.parse(localStorage.getItem(LS_SORT)) || {}; }
+  catch(e){ return {}; }
+}
+function saveSortPref(p){
+  localStorage.setItem(LS_SORT, JSON.stringify(p));
+}
+function sortByText(arr, key){
+  return arr.slice().sort((a,b)=>{
+    const x = String(a[key]||'').toLowerCase();
+    const y = String(b[key]||'').toLowerCase();
+    return x.localeCompare(y, 'zh-CN', {numeric:true});
+  });
+}
+function toggleLibSort(){
+  const p = getSortPref();
+  p.libs = p.libs === 'name' ? 'default' : 'name';
+  saveSortPref(p);
+  refreshCurrentPage();
+}
+function toggleGroupSort(libId){
+  const p = getSortPref();
+  if(!p.groups) p.groups = {};
+  p.groups[libId] = p.groups[libId] === 'name' ? 'default' : 'name';
+  saveSortPref(p);
+  refreshCurrentPage();
+}
+function toggleLibWordSort(libId){
+  const p = getSortPref();
+  if(!p.words) p.words = {};
+  p.words[libId] = p.words[libId] === 'name' ? 'default' : 'name';
+  saveSortPref(p);
+  refreshCurrentPage();
+}
+function showToast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.classList.add('show'),10);
+  setTimeout(()=>{
+    t.classList.remove('show');
+    setTimeout(()=>t.remove(),300);
+  },2200);
+}
+
+/* ========== Modals ========== */
+function showConfirm(text){
+  return new Promise(resolve=>{
+    document.getElementById('confirm-text').textContent = text;
+    document.getElementById('confirm-modal').classList.add('show');
+    window._confirmCb = resolve;
+  });
+}
+function closeConfirm(result){
+  document.getElementById('confirm-modal').classList.remove('show');
+  if(window._confirmCb){ window._confirmCb(result); window._confirmCb = null; }
+}
+function showInputModal(title, defVal){
+  return new Promise(resolve=>{
+    document.getElementById('input-modal-title').textContent = title;
+    const f = document.getElementById('input-modal-field');
+    f.value = defVal || '';
+    document.getElementById('input-modal').classList.add('show');
+    setTimeout(()=>f.focus(),100);
+    window._inputCb = resolve;
+  });
+}
+function submitInputModal(){
+  const v = document.getElementById('input-modal-field').value.trim();
+  closeInputModal(v);
+}
+function closeInputModal(v){
+  document.getElementById('input-modal').classList.remove('show');
+  if(window._inputCb){ window._inputCb(v); window._inputCb = null; }
+}
+document.getElementById('input-modal-field').addEventListener('keydown',e=>{
+  if(e.key==='Enter') submitInputModal();
+});
+
+/* ========== Image Viewer ========== */
+function showImageFullscreen(src){
+  document.getElementById('viewer-img').src = src;
+  document.getElementById('image-viewer').classList.add('show');
+}
+function closeImageViewer(){
+  document.getElementById('image-viewer').classList.remove('show');
+  document.getElementById('viewer-img').src = '';
+}
+
+/* ========== Navigation ========== */
+function showPage(pageId){
+  document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+  document.getElementById(pageId).classList.remove('hidden');
+  state.currentPage = pageId;
+  window.scrollTo(0,0);
+}
+
+/* ========== Home Page ========== */
+function renderHome(){
+  const total = state.words.length;
+  const redCount = state.words.filter(w=>w.label==='red').length;
+  const yellowCount = state.words.filter(w=>w.label==='yellow').length;
+  const greenCount = state.words.filter(w=>w.label==='green').length;
+
+  let libHTML = '';
+  if(state.libraries.length === 0){
+    libHTML = `<div class="empty-state"><div class="emoji">📚</div><p>还没有词库<br>点击下方按钮创建一个吧！</p></div>`;
+  } else {
+    const sortPref = getSortPref();
+    let libs = state.libraries;
+    if(sortPref.libs === 'name'){
+      libs = sortByText(libs, 'name');
+    }
+    libHTML = libs.map(lib=>{
+      const wordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id)).length;
+      const groupCount = lib.groups.length;
+      return `
+        <div class="lib-card" onclick="navigateLibrary('${lib.id}')">
+          <div class="lib-icon">📁</div>
+          <div class="lib-info">
+            <div class="lib-name">${escapeHtml(lib.name)}</div>
+            <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词</div>
+          </div>
+          <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameLibrary('${lib.id}')">✏️</button>
+          <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteLibrary('${lib.id}')">🗑️</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('page-home').innerHTML = `
+    <div class="app-header">
+      <h1>📚 英语单词本</h1>
+      <p>快乐学英语，天天进步！</p>
+    </div>
+    <div class="warning-box">
+      ⚠️ 浏览器清理缓存会丢失数据，请定期导出备份！
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">全部</div></div>
+      <div class="stat-box red"><div class="stat-num">${redCount}</div><div class="stat-label">🔴 不会</div></div>
+      <div class="stat-box yellow"><div class="stat-num">${yellowCount}</div><div class="stat-label">🟡 想想</div></div>
+      <div class="stat-box green"><div class="stat-num">${greenCount}</div><div class="stat-label">🟢 会</div></div>
+    </div>
+    <div class="btn-row" style="margin-bottom:10px">
+      <button class="btn btn-primary btn-large" onclick="startNewWord()">➕ 添加单词</button>
+      <button class="btn btn-green btn-large" onclick="navigateReviewSelect()">🔀 乱序复习</button>
+    </div>
+    <button class="btn btn-orange btn-block" style="margin-bottom:10px" onclick="navigateAllWords()">📖 全部单词 (${total})</button>
+    <div class="btn-row" style="margin-bottom:20px">
+      <button class="btn btn-blue" onclick="exportBackup()">💾 导出备份</button>
+      <button class="btn btn-blue" onclick="document.getElementById('backup-file-input').click()">📂 导入备份</button>
+    </div>
+    <div class="section-title">📁 我的词库
+      <button class="sort-chip ${getSortPref().libs==='name'?'active':''}" onclick="toggleLibSort()">${getSortPref().libs==='name'?'🕐 原顺序':'🔤 按名称'}</button>
+    </div>
+    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createLibrary()">➕ 新建词库</button>
+    ${libHTML}
+  `;
+}
+
+/* ========== Library Page ========== */
+function navigateLibrary(libId){
+  state.currentLibraryId = libId;
+  renderLibrary();
+  showPage('page-library');
+}
+function renderLibrary(){
+  const lib = state.libraries.find(l=>l.id===state.currentLibraryId);
+  if(!lib){ navigateHome(); return; }
+  const sortPref = getSortPref();
+
+  let groups = lib.groups;
+  if(sortPref.groups && sortPref.groups[lib.id] === 'name'){
+    groups = sortByText(groups, 'name');
+  }
+
+  let groupsHTML = '';
+  if(groups.length === 0){
+    groupsHTML = `<div class="empty-state"><div class="emoji">📂</div><p>还没有分组</p></div>`;
+  } else {
+    groupsHTML = groups.map(g=>{
+      const wordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id)).length;
+      return `
+        <div class="group-card" onclick="navigateGroup('${lib.id}','${g.id}')">
+          <div class="group-icon">📄</div>
+          <div class="group-info">
+            <div class="group-name">${escapeHtml(g.name)}</div>
+            <div class="group-meta">${wordCount} 个单词</div>
+          </div>
+          <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameGroup('${lib.id}','${g.id}')">✏️</button>
+          <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteGroup('${lib.id}','${g.id}')">🗑️</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  let libWords = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id));
+  if(sortPref.words && sortPref.words[lib.id] === 'name'){
+    libWords = sortByText(libWords, 'english');
+  }
+
+  document.getElementById('page-library').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateHome()">←</button>
+      <div class="back-title">📁 ${escapeHtml(lib.name)}</div>
+    </div>
+    <div class="section-title">📂 分组
+      <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
+    </div>
+    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createGroup('${lib.id}')">➕ 新建分组</button>
+    ${groupsHTML}
+    <div class="section-title">📖 词库内全部单词 (${libWords.length})
+      <button class="sort-chip ${sortPref.words && sortPref.words[lib.id]==='name'?'active':''}" onclick="toggleLibWordSort('${lib.id}')">${sortPref.words && sortPref.words[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord('${lib.id}')">➕ 添加单词到此词库</button>
+    <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="navigateAddToLib('${lib.id}')">📥 从已有单词添加</button>
+    <div id="lib-words-list"></div>
+  `;
+  renderWordList('lib-words-list', libWords);
+}
+
+/* ========== Group Page ========== */
+function navigateGroup(libId, groupId){
+  state.currentLibraryId = libId;
+  state.currentGroupId = groupId;
+  renderGroup();
+  showPage('page-group');
+}
+function renderGroup(){
+  const lib = state.libraries.find(l=>l.id===state.currentLibraryId);
+  if(!lib){ navigateHome(); return; }
+  const group = lib.groups.find(g=>g.id===state.currentGroupId);
+  if(!group){ navigateLibrary(state.currentLibraryId); return; }
+
+  let words = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===group.id));
+  const sortPref = getSortPref();
+  if(sortPref.words && sortPref.words[lib.id] === 'name'){
+    words = sortByText(words, 'english');
+  }
+
+  document.getElementById('page-group').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateLibrary('${lib.id}')">←</button>
+      <div class="back-title">📄 ${escapeHtml(group.name)}</div>
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord('${lib.id}','${group.id}')">➕ 添加单词</button>
+    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="startReviewGroup('${lib.id}','${group.id}')">🔀 本组乱序复习 (${words.length})</button>
+    <div style="text-align:right;margin-bottom:8px">
+      <button class="sort-chip ${sortPref.words && sortPref.words[lib.id]==='name'?'active':''}" onclick="toggleLibWordSort('${lib.id}')">${sortPref.words && sortPref.words[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
+    </div>
+    <div id="group-words-list"></div>
+  `;
+  if(words.length === 0){
+    document.getElementById('group-words-list').innerHTML = `<div class="empty-state"><div class="emoji">📝</div><p>还没有单词<br>点击上方按钮添加吧！</p></div>`;
+  } else {
+    renderWordList('group-words-list', words);
+  }
+}
+
+/* ========== Word List Renderer ========== */
+function renderWordList(containerId, words){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  if(words.length === 0){
+    container.innerHTML = `<div class="empty-state"><div class="emoji">📝</div><p>还没有单词</p></div>`;
+    return;
+  }
+  const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
+  container.innerHTML = words.map(w=>`
+    <div class="word-card ${w.label}">
+      <div class="word-card-top">
+        <div class="word-thumb" id="thumb-${w.id}" onclick="loadThumbDetail('${w.id}')">🖼️</div>
+        <div class="word-main">
+          <div class="word-english">${escapeHtml(w.english)}</div>
+          <div class="word-chinese">${escapeHtml(w.chinese)}</div>
+        </div>
+        <div class="label-dot ${w.label}" onclick="cycleLabel('${w.id}',this)">${labelEmoji[w.label]}</div>
+      </div>
+      <div class="word-card-actions">
+        <button class="btn btn-small btn-blue" onclick="editWord('${w.id}')">✏️ 编辑</button>
+        <button class="btn btn-small btn-red" onclick="deleteWord('${w.id}')">🗑️ 删除</button>
+      </div>
+    </div>
+  `).join('');
+  // Async load thumbnails
+  loadThumbnails(words.map(w=>w.id));
+}
+async function loadThumbnails(wordIds){
+  for(const id of wordIds){
+    const images = await dbGetImagesByWord(id);
+    if(images.length > 0){
+      const el = document.getElementById('thumb-'+id);
+      if(el){
+        el.innerHTML = `<img src="${images[0].data}" alt="">`;
+        el.onclick = ()=>showImageFullscreen(images[0].data);
+      }
+    }
+  }
+}
+async function loadThumbDetail(wordId){
+  const images = await dbGetImagesByWord(wordId);
+  if(images.length > 0){
+    showImageFullscreen(images[0].data);
+  }
+}
+
+/* ========== All Words Page ========== */
+function navigateAllWords(){
+  renderAllWords();
+  showPage('page-all-words');
+}
+function renderAllWords(){
+  document.getElementById('page-all-words').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateHome()">←</button>
+      <div class="back-title">📖 全部单词 (${state.words.length})</div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <input type="text" class="form-input" id="search-input" placeholder="🔍 搜索单词或备注..." autocomplete="off" oninput="searchWords(this.value)">
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-bottom:16px" onclick="startNewWord()">➕ 添加单词</button>
+    <div id="all-words-list"></div>
+  `;
+  renderWordList('all-words-list', state.words);
+}
+function searchWords(query){
+  const q = query.trim().toLowerCase();
+  const list = document.getElementById('all-words-list');
+  if(!q){
+    renderWordList('all-words-list', state.words);
+    return;
+  }
+  const filtered = state.words.filter(w=>
+    w.english.toLowerCase().includes(q) ||
+    (w.chinese || '').toLowerCase().includes(q)
+  );
+  renderWordList('all-words-list', filtered);
+}
+
+/* ========== Word Edit Page ========== */
+function startNewWord(preLib, preGroup){
+  state.editingWord = {
+    id: genId('word'),
+    english: '',
+    chinese: '',
+    label: 'yellow',
+    images: [],
+    originalImageIds: [],
+    placements: (preLib && preGroup) ? [{libraryId:preLib, groupId:preGroup}] : []
+  };
+  renderWordEdit();
+  showPage('page-word-edit');
+}
+function editWord(wordId){
+  const word = state.words.find(w=>w.id===wordId);
+  if(!word) return;
+  startEditExisting(word);
+}
+async function startEditExisting(word){
+  const images = await dbGetImagesByWord(word.id);
+  state.editingWord = {
+    id: word.id,
+    english: word.english,
+    chinese: word.chinese,
+    label: word.label,
+    images: images.map(img=>({id:img.id, data:img.data, isNew:false})),
+    originalImageIds: images.map(img=>img.id),
+    placements: (word.placements||[]).slice()
+  };
+  renderWordEdit();
+  showPage('page-word-edit');
+}
+function renderWordEdit(){
+  const ew = state.editingWord;
+  if(!ew){ navigateHome(); return; }
+  const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
+  const labelText = {red:'不会',yellow:'想一想',green:'会'};
+
+  // Image slots
+  let slotsHTML = '';
+  for(let i=0; i<5; i++){
+    if(ew.images[i]){
+      slotsHTML += `
+        <div class="image-slot filled">
+          <img src="${ew.images[i].data}" alt="" onclick="showImageFullscreen('${ew.images[i].data}')">
+          <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
+        </div>`;
+    } else {
+      slotsHTML += `<div class="image-slot" onclick="triggerImageUpload()">+</div>`;
+    }
+  }
+
+  // Placement checkboxes are rendered by renderWordEditPlacements()
+  // to support collapse/expand without losing input values
+
+  document.getElementById('page-word-edit').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="cancelEditWord()">←</button>
+      <div class="back-title">📝 ${state.words.find(w=>w.id===ew.id) ? '编辑单词' : '添加单词'}</div>
+    </div>
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label">英文单词</label>
+        <input type="text" class="form-input" id="input-english" value="${escapeHtml(ew.english)}" placeholder="输入英文单词" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">备注（可不填）</label>
+        <textarea class="form-input" id="input-chinese" placeholder="输入备注内容，支持任何文字">${escapeHtml(ew.chinese)}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">📷 图片（最多5张）</label>
+        <div class="image-slots" id="image-slots">${slotsHTML}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">颜色标记</label>
+        <div class="label-selector" id="label-selector">
+          <div class="label-option red ${ew.label==='red'?'active':''}" onclick="setEditLabel('red')">🔴 不会</div>
+          <div class="label-option yellow ${ew.label==='yellow'?'active':''}" onclick="setEditLabel('yellow')">🟡 想一想</div>
+          <div class="label-option green ${ew.label==='green'?'active':''}" onclick="setEditLabel('green')">🟢 会</div>
+        </div>
+      </div>
+      <div class="form-group" id="placement-form-group"></div>
+      <button class="btn btn-green btn-large" onclick="saveWord()">💾 保存</button>
+    </div>
+  `;
+  renderWordEditPlacements();
+}
+function setEditLabel(label){
+  state.editingWord.label = label;
+  document.querySelectorAll('#label-selector .label-option').forEach(el=>{
+    el.classList.toggle('active', el.classList.contains(label));
+  });
+}
+function togglePlacement(libId, groupId){
+  const placements = state.editingWord.placements;
+  const idx = placements.findIndex(p=>p.libraryId===libId && p.groupId===groupId);
+  if(idx >= 0){
+    placements.splice(idx, 1);
+  } else {
+    placements.push({libraryId:libId, groupId:groupId});
+  }
+  renderWordEditPlacements();
+}
+function renderWordEditPlacements(){
+  // Re-render just the placement section (keeps input values intact)
+  const ew = state.editingWord;
+  const collapsed = !!state.editPlacementsCollapsed;
+  const collapsedLibs = state.editCollapsedLibs || {};
+  let html = '';
+  if(state.libraries.length === 0){
+    html = `<p style="color:var(--text-l);font-size:16px">还没有词库，请先在首页创建词库和分组。</p>`;
+  } else if(!collapsed){
+    html = state.libraries.map(lib=>{
+      const libCollapsed = !!collapsedLibs[lib.id];
+      let groupsHTML = '';
+      if(lib.groups.length === 0){
+        groupsHTML = `<div style="padding:8px 14px 8px 28px;color:var(--text-l);font-size:16px">暂无分组</div>`;
+      } else {
+        groupsHTML = lib.groups.map(g=>{
+          const checked = ew.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id);
+          return `
+            <div class="placement-group ${checked?'checked':''}" onclick="togglePlacement('${lib.id}','${g.id}')">
+              <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();togglePlacement('${lib.id}','${g.id}')">
+              <span>${escapeHtml(g.name)}</span>
+            </div>`;
+        }).join('');
+      }
+      return `
+        <div class="placement-section">
+          <div class="placement-lib" onclick="toggleEditLibCollapse('${lib.id}')">
+            📁 ${escapeHtml(lib.name)}
+            <span class="collapse-arrow ${libCollapsed?'':'open'}">▾</span>
+          </div>
+          <div class="placement-groups ${libCollapsed?'hidden':''}">
+            ${groupsHTML}
+          </div>
+        </div>`;
+    }).join('');
+  }
+  const container = document.getElementById('placement-form-group');
+  if(container){
+    container.innerHTML = `
+      <label class="form-label form-label-toggle" onclick="toggleEditPlacementsCollapse()">
+        <span>归属词库与分组</span>
+        <span class="collapse-arrow ${collapsed?'':'open'}">▾</span>
+      </label>
+      ${html}
+    `;
+  }
+}
+function toggleEditPlacementsCollapse(){
+  state.editPlacementsCollapsed = !state.editPlacementsCollapsed;
+  renderWordEditPlacements();
+}
+function toggleEditLibCollapse(libId){
+  if(!state.editCollapsedLibs) state.editCollapsedLibs = {};
+  state.editCollapsedLibs[libId] = !state.editCollapsedLibs[libId];
+  renderWordEditPlacements();
+}
+function triggerImageUpload(){
+  const remaining = 5 - state.editingWord.images.length;
+  if(remaining <= 0){
+    showToast('最多只能添加5张图片');
+    return;
+  }
+  const input = document.getElementById('image-file-input');
+  input.value = '';
+  input.click();
+}
+document.getElementById('image-file-input').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files);
+  if(!files.length) return;
+  const remaining = 5 - state.editingWord.images.length;
+  const toProcess = files.slice(0, remaining);
+  for(const file of toProcess){
+    if(!file.type.startsWith('image/')) continue;
+    try{
+      const data = await resizeImage(file, 1024, 0.8);
+      state.editingWord.images.push({id:genId('img'), data:data, isNew:true});
+    }catch(err){
+      showToast('图片处理失败');
+    }
+  }
+  renderWordEditImages();
+});
+function renderWordEditImages(){
+  const ew = state.editingWord;
+  let slotsHTML = '';
+  for(let i=0; i<5; i++){
+    if(ew.images[i]){
+      slotsHTML += `
+        <div class="image-slot filled">
+          <img src="${ew.images[i].data}" alt="" onclick="showImageFullscreen('${ew.images[i].data}')">
+          <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
+        </div>`;
+    } else {
+      slotsHTML += `<div class="image-slot" onclick="triggerImageUpload()">+</div>`;
+    }
+  }
+  document.getElementById('image-slots').innerHTML = slotsHTML;
+}
+function removeImageFromEditing(index){
+  state.editingWord.images.splice(index, 1);
+  renderWordEditImages();
+}
+function resizeImage(file, maxWidth, quality){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let {width, height} = img;
+        if(width > maxWidth){
+          height = Math.round(height * maxWidth / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = ()=>reject(new Error('Image load error'));
+      img.src = e.target.result;
+    };
+    reader.onerror = ()=>reject(new Error('File read error'));
+    reader.readAsDataURL(file);
+  });
+}
+function cancelEditWord(){
+  state.editingWord = null;
+  goBackFromEdit();
+}
+function goBackFromEdit(){
+  if(state.currentGroupId && state.currentLibraryId){
+    navigateGroup(state.currentLibraryId, state.currentGroupId);
+  } else if(state.currentLibraryId){
+    navigateLibrary(state.currentLibraryId);
+  } else if(state.currentPage === 'page-all-words'){
+    navigateAllWords();
+  } else {
+    navigateHome();
+  }
+}
+async function saveWord(){
+  const ew = state.editingWord;
+  const english = document.getElementById('input-english').value.trim();
+  const chinese = document.getElementById('input-chinese').value.trim();
+  if(!english){
+    showToast('请输入英文单词');
+    return;
+  }
+  // Check for duplicate (case-insensitive)
+  if(state.words.some(w=>w.id!==ew.id && w.english.toLowerCase()===english.toLowerCase())){
+    showToast('单词已存在');
+    return;
+  }
+  ew.english = english;
+  ew.chinese = chinese;
+
+  // Save new images to IndexedDB
+  for(const img of ew.images){
+    if(img.isNew){
+      await dbSaveImage({id:img.id, wordId:ew.id, data:img.data});
+    }
+  }
+  // Delete removed images
+  const currentIds = ew.images.map(i=>i.id);
+  for(const oldId of ew.originalImageIds){
+    if(!currentIds.includes(oldId)){
+      await dbDeleteImage(oldId);
+    }
+  }
+  // Save word
+  const wordData = {
+    id: ew.id,
+    english: ew.english,
+    chinese: ew.chinese,
+    label: ew.label,
+    placements: ew.placements
+  };
+  const idx = state.words.findIndex(w=>w.id===ew.id);
+  if(idx >= 0){
+    state.words[idx] = wordData;
+  } else {
+    state.words.push(wordData);
+  }
+  saveWords();
+  state.editingWord = null;
+  showToast('保存成功！');
+  goBackFromEdit();
+}
+
+/* ========== Label Cycling ========== */
+function cycleLabel(wordId, element){
+  const word = state.words.find(w=>w.id===wordId);
+  if(!word) return;
+  const order = ['red','yellow','green'];
+  const idx = order.indexOf(word.label);
+  word.label = order[(idx+1)%3];
+  saveWords();
+  // Update UI
+  const card = element.closest('.word-card');
+  card.className = 'word-card ' + word.label;
+  const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
+  element.className = 'label-dot ' + word.label;
+  element.textContent = labelEmoji[word.label];
+  // Update stats if on home page
+  if(state.currentPage === 'home'){
+    renderHome();
+  }
+}
+
+/* ========== Library Actions ========== */
+async function createLibrary(){
+  const name = await showInputModal('输入词库名称', '');
+  if(!name) return;
+  const lib = {
+    id: genId('lib'),
+    name: name,
+    groups: [{id:genId('grp'), name:'默认分组'}]
+  };
+  state.libraries.push(lib);
+  saveLibraries();
+  renderHome();
+  showToast('词库已创建');
+}
+async function renameLibrary(id){
+  const lib = state.libraries.find(l=>l.id===id);
+  if(!lib) return;
+  const name = await showInputModal('修改词库名称', lib.name);
+  if(!name) return;
+  lib.name = name;
+  saveLibraries();
+  if(state.currentPage === 'page-home') renderHome();
+  if(state.currentPage === 'page-library') renderLibrary();
+}
+async function deleteLibrary(id){
+  const lib = state.libraries.find(l=>l.id===id);
+  if(!lib) return;
+  const ok = await showConfirm(`确定删除词库「${lib.name}」吗？词库内单词不会被删除，但会移出该词库。`);
+  if(!ok) return;
+  // Remove placements referencing this library from all words
+  for(const word of state.words){
+    word.placements = word.placements.filter(p=>p.libraryId!==id);
+  }
+  saveWords();
+  state.libraries = state.libraries.filter(l=>l.id!==id);
+  saveLibraries();
+  renderHome();
+  showToast('词库已删除');
+}
+
+/* ========== Group Actions ========== */
+async function createGroup(libId){
+  const name = await showInputModal('输入分组名称', '');
+  if(!name) return;
+  const lib = state.libraries.find(l=>l.id===libId);
+  if(!lib) return;
+  lib.groups.push({id:genId('grp'), name:name});
+  saveLibraries();
+  renderLibrary();
+  showToast('分组已创建');
+}
+async function deleteGroup(libId, groupId){
+  const lib = state.libraries.find(l=>l.id===libId);
+  if(!lib) return;
+  const group = lib.groups.find(g=>g.id===groupId);
+  if(!group) return;
+  const ok = await showConfirm(`确定删除分组「${group.name}」吗？分组内单词不会被删除，但会移出该分组。`);
+  if(!ok) return;
+  for(const word of state.words){
+    word.placements = word.placements.filter(p=>!(p.libraryId===libId && p.groupId===groupId));
+  }
+  saveWords();
+  lib.groups = lib.groups.filter(g=>g.id!==groupId);
+  saveLibraries();
+  renderLibrary();
+  showToast('分组已删除');
+}
+async function renameGroup(libId, groupId){
+  const lib = state.libraries.find(l=>l.id===libId);
+  if(!lib) return;
+  const group = lib.groups.find(g=>g.id===groupId);
+  if(!group) return;
+  const name = await showInputModal('修改分组名称', group.name);
+  if(!name) return;
+  group.name = name;
+  saveLibraries();
+  refreshCurrentPage();
+  showToast('分组已重命名');
+}
+
+/* ========== Add Existing Words to Library ========== */
+function navigateAddToLib(libId){
+  state.currentLibraryId = libId;
+  renderAddToLib();
+  showPage('page-add-to-lib');
+}
+function renderAddToLib(){
+  const lib = state.libraries.find(l=>l.id===state.currentLibraryId);
+  if(!lib){ navigateHome(); return; }
+  document.getElementById('page-add-to-lib').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateLibrary('${lib.id}')">←</button>
+      <div class="back-title">📥 添加到「${escapeHtml(lib.name)}」</div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <input type="text" class="form-input" id="add-to-lib-search" placeholder="🔍 搜索单词..." autocomplete="off" oninput="searchAddToLib(this.value)">
+    </div>
+    <div id="add-to-lib-list"></div>
+  `;
+  renderAddToLibList(state.words, lib);
+}
+function renderAddToLibList(words, lib){
+  const container = document.getElementById('add-to-lib-list');
+  if(!container) return;
+  if(words.length === 0){
+    container.innerHTML = `<div class="empty-state"><div class="emoji">📝</div><p>没有找到单词</p></div>`;
+    return;
+  }
+  const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
+  container.innerHTML = words.map(w=>{
+    const inLib = w.placements.some(p=>p.libraryId===lib.id);
+    let groupsHTML = '';
+    if(lib.groups.length === 0){
+      groupsHTML = '<div style="color:var(--text-l);font-size:16px;padding:8px 14px">暂无分组，请先在词库页创建分组</div>';
+    } else {
+      groupsHTML = lib.groups.map(g=>{
+        const checked = w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id);
+        return `
+          <div class="placement-group ${checked?'checked':''}" onclick="toggleAddToLib('${w.id}','${lib.id}','${g.id}')">
+            <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();toggleAddToLib('${w.id}','${lib.id}','${g.id}')">
+            <span>${escapeHtml(g.name)}</span>
+          </div>`;
+      }).join('');
+    }
+    return `
+      <div class="word-card ${w.label}">
+        <div class="word-card-top">
+          <div class="word-main">
+            <div class="word-english">${escapeHtml(w.english)}</div>
+            <div class="word-chinese">${escapeHtml(w.chinese)}</div>
+          </div>
+          <div class="label-dot ${w.label}" style="cursor:default">${labelEmoji[w.label]}</div>
+        </div>
+        <div class="placement-section">${groupsHTML}</div>
+      </div>
+    `;
+  }).join('');
+}
+function toggleAddToLib(wordId, libId, groupId){
+  const word = state.words.find(w=>w.id===wordId);
+  if(!word) return;
+  const idx = word.placements.findIndex(p=>p.libraryId===libId && p.groupId===groupId);
+  if(idx >= 0){
+    word.placements.splice(idx, 1);
+  } else {
+    word.placements.push({libraryId:libId, groupId:groupId});
+  }
+  saveWords();
+  // Re-render list with current search
+  const lib = state.libraries.find(l=>l.id===libId);
+  const searchEl = document.getElementById('add-to-lib-search');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  let words = state.words;
+  if(q){
+    words = words.filter(w=>w.english.toLowerCase().includes(q) || (w.chinese||'').toLowerCase().includes(q));
+  }
+  renderAddToLibList(words, lib);
+}
+function searchAddToLib(query){
+  const lib = state.libraries.find(l=>l.id===state.currentLibraryId);
+  if(!lib) return;
+  const q = query.trim().toLowerCase();
+  let words = state.words;
+  if(q){
+    words = words.filter(w=>w.english.toLowerCase().includes(q) || (w.chinese||'').toLowerCase().includes(q));
+  }
+  renderAddToLibList(words, lib);
+}
+
+/* ========== Word Delete ========== */
+async function deleteWord(id){
+  const word = state.words.find(w=>w.id===id);
+  if(!word) return;
+  const ok = await showConfirm(`确定删除单词「${word.english}」吗？`);
+  if(!ok) return;
+  await dbDeleteImagesByWord(id);
+  state.words = state.words.filter(w=>w.id!==id);
+  saveWords();
+  // Re-render current page
+  refreshCurrentPage();
+  showToast('单词已删除');
+}
+
+/* ========== Review ========== */
+function navigateReviewSelect(){
+  renderReviewSelect();
+  showPage('page-review-select');
+}
+function renderReviewSelect(){
+  let optionsHTML = '';
+  // All words option
+  optionsHTML = `
+    <div class="group-card" onclick="startReviewAll()">
+      <div class="group-icon">🌐</div>
+      <div class="group-info">
+        <div class="group-name">全部单词</div>
+        <div class="group-meta">${state.words.length} 个单词</div>
+      </div>
+    </div>`;
+
+  // Per library options
+  for(const lib of state.libraries){
+    const libWordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id)).length;
+    optionsHTML += `
+      <div class="lib-card" style="cursor:pointer" onclick="startReviewLibrary('${lib.id}')">
+        <div class="lib-icon">📁</div>
+        <div class="lib-info">
+          <div class="lib-name">${escapeHtml(lib.name)}</div>
+          <div class="lib-meta">全部 ${libWordCount} 词</div>
+        </div>
+      </div>`;
+    for(const g of lib.groups){
+      const gWordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id)).length;
+      optionsHTML += `
+        <div class="group-card" style="margin-left:20px" onclick="startReviewGroup('${lib.id}','${g.id}')">
+          <div class="group-icon">📄</div>
+          <div class="group-info">
+            <div class="group-name">${escapeHtml(g.name)}</div>
+            <div class="group-meta">${gWordCount} 个单词</div>
+          </div>
+        </div>`;
+    }
+  }
+
+  document.getElementById('page-review-select').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateHome()">←</button>
+      <div class="back-title">🔀 选择复习范围</div>
+    </div>
+    ${optionsHTML}
+  `;
+}
+function startReviewAll(){
+  const words = state.words.slice();
+  if(!words.length){ showToast('没有单词可以复习'); return; }
+  beginReview(shuffle(words));
+}
+function startReviewLibrary(libId){
+  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
+  if(!words.length){ showToast('该词库没有单词'); return; }
+  beginReview(shuffle(words));
+}
+function startReviewGroup(libId, groupId){
+  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
+  if(!words.length){ showToast('该分组没有单词'); return; }
+  beginReview(shuffle(words));
+}
+function beginReview(words){
+  state.reviewWords = words;
+  state.reviewIndex = 0;
+  renderReview();
+  showPage('page-review');
+}
+async function renderReview(){
+  if(state.reviewIndex >= state.reviewWords.length){
+    renderReviewComplete();
+    return;
+  }
+  const word = state.reviewWords[state.reviewIndex];
+  const images = await dbGetImagesByWord(word.id);
+  const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
+  const labelText = {red:'不会',yellow:'想一想',green:'会'};
+
+  let imagesHTML = '';
+  if(images.length > 0){
+    imagesHTML = images.map(img=>
+      `<img class="review-img" src="${img.data}" alt="" onclick="showImageFullscreen('${img.data}')">`
+    ).join('');
+  }
+
+  document.getElementById('page-review').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="endReview()">←</button>
+      <div class="back-title">🔀 乱序复习</div>
+    </div>
+    <div class="review-progress">第 ${state.reviewIndex+1} / ${state.reviewWords.length} 个</div>
+    <div class="review-card">
+      ${imagesHTML ? `<div class="review-images">${imagesHTML}</div>` : '<div style="font-size:48px;margin-bottom:12px">📝</div>'}
+      <div class="review-english">${escapeHtml(word.english)}</div>
+      <div class="review-chinese">${escapeHtml(word.chinese)}</div>
+    </div>
+    <div class="review-labels">
+      <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴 不会</div>
+      <div class="review-label-btn yellow ${word.label==='yellow'?'active':''}" onclick="setReviewLabel('yellow')">🟡 想一想</div>
+      <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>⬅️ 上一个</button>
+      <button class="btn btn-primary" onclick="nextReviewWord()">下一条 ➡️</button>
+    </div>
+  `;
+}
+function setReviewLabel(label){
+  const word = state.reviewWords[state.reviewIndex];
+  if(!word) return;
+  word.label = label;
+  saveWords();
+  document.querySelectorAll('.review-label-btn').forEach(el=>{
+    el.classList.toggle('active', el.classList.contains(label));
+  });
+}
+function nextReviewWord(){
+  state.reviewIndex++;
+  renderReview();
+}
+function prevReviewWord(){
+  if(state.reviewIndex > 0){
+    state.reviewIndex--;
+    renderReview();
+  }
+}
+function endReview(){
+  state.reviewWords = [];
+  state.reviewIndex = 0;
+  navigateReviewSelect();
+}
+function renderReviewComplete(){
+  const greenCount = state.reviewWords.filter(w=>w.label==='green').length;
+  const yellowCount = state.reviewWords.filter(w=>w.label==='yellow').length;
+  const redCount = state.reviewWords.filter(w=>w.label==='red').length;
+  document.getElementById('page-review').innerHTML = `
+    <div class="completion-screen">
+      <div class="big-emoji">🎉</div>
+      <h2>复习完成！</h2>
+      <p>你一共复习了 ${state.reviewWords.length} 个单词</p>
+      <div class="stats-row" style="max-width:300px;margin:0 auto 24px">
+        <div class="stat-box red"><div class="stat-num">${redCount}</div><div class="stat-label">🔴</div></div>
+        <div class="stat-box yellow"><div class="stat-num">${yellowCount}</div><div class="stat-label">🟡</div></div>
+        <div class="stat-box green"><div class="stat-num">${greenCount}</div><div class="stat-label">🟢</div></div>
+      </div>
+      <button class="btn btn-primary btn-large" onclick="endReview()">返回</button>
+    </div>
+  `;
+}
+
+/* ========== Backup ========== */
+async function exportBackup(){
+  showToast('正在准备备份...');
+  const images = await dbGetAllImages();
+  const backup = {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    libraries: state.libraries,
+    words: state.words,
+    images: images
+  };
+  const json = JSON.stringify(backup);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `单词本备份_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('备份已导出！');
+}
+document.getElementById('backup-file-input').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  e.target.value = '';
+  try{
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    if(!backup.libraries || !backup.words){
+      showToast('备份文件格式不正确');
+      return;
+    }
+    const ok = await showConfirm('导入备份将覆盖当前所有数据，确定继续吗？');
+    if(!ok) return;
+    // Restore data
+    state.libraries = backup.libraries;
+    state.words = backup.words;
+    saveLibraries();
+    saveWords();
+    // Restore images
+    await dbClearAllImages();
+    if(backup.images && backup.images.length){
+      for(const img of backup.images){
+        await dbSaveImage(img);
+      }
+    }
+    showToast('备份导入成功！');
+    navigateHome();
+  }catch(err){
+    showToast('导入失败：文件格式错误');
+  }
+});
+
+/* ========== Navigation Helpers ========== */
+function navigateHome(){
+  state.currentLibraryId = null;
+  state.currentGroupId = null;
+  renderHome();
+  showPage('page-home');
+}
+function refreshCurrentPage(){
+  if(state.currentPage === 'page-home') renderHome();
+  else if(state.currentPage === 'page-library') renderLibrary();
+  else if(state.currentPage === 'page-group') renderGroup();
+  else if(state.currentPage === 'page-all-words') renderAllWords();
+  else if(state.currentPage === 'page-add-to-lib') renderAddToLib();
+  else navigateHome();
+}
+
+/* ========== Init ========== */
+function init(){
+  state.libraries = loadLibraries();
+  state.words = loadWords();
+  renderHome();
+  showPage('page-home');
+}
+init();
+</script>
+</body>
+</html>
