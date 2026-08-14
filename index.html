@@ -960,13 +960,12 @@ function renderLibrary(){
   document.getElementById('page-library').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
-      <div class="back-title">📁 ${escapeHtml(lib.name)}</div>
       <button class="btn btn-small btn-white" title="隐藏/显示词库" onclick="toggleHideLib('${lib.id}')">${lib.hidden?'👁️':'🙈'}</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportLibWord('${lib.id}')">📤</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameLibrary('${lib.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除词库" onclick="deleteLibrary('${lib.id}')">🗑️</button>
     </div>
-    <div class="section-title">📂 分组
+    <div class="section-title">📁 ${escapeHtml(lib.name)}
       <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createGroup('${lib.id}')">➕ 新建分组</button>
@@ -2323,7 +2322,6 @@ function renderStoryLib(){
   document.getElementById('page-story-lib').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryHome()">←</button>
-      <div class="back-title">🗂️ ${escapeHtml(lib.name)}</div>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameStoryLib('${lib.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除故事库" onclick="deleteStoryLib('${lib.id}')">🗑️</button>
@@ -2332,7 +2330,7 @@ function renderStoryLib(){
       <button class="btn btn-blue" onclick="createStoryGroup('${lib.id}')">➕ 新建分组</button>
       <button class="btn btn-green" onclick="startStoryEdit('${lib.id}')">➕ 新建故事</button>
     </div>
-    <div class="section-title">📂 分组（共 ${libStoryCount} 个故事）</div>
+    <div class="section-title">🗂️ ${escapeHtml(lib.name)}（共 ${libStoryCount} 个故事）</div>
     ${groupsHTML}
   `;
 }
