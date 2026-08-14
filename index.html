@@ -225,6 +225,21 @@ textarea.form-input{resize:vertical;min-height:60px}
 .review-label-btn.red.active{background:var(--red);color:#fff;border-color:var(--red)}
 .review-label-btn.yellow.active{background:var(--yellow);color:#fff;border-color:var(--yellow)}
 .review-label-btn.green.active{background:var(--green);color:#fff;border-color:var(--green)}
+/* Review exclude-green toggle */
+.review-toggle{
+  display:flex;align-items:center;gap:8px;padding:12px 16px;margin-bottom:14px;
+  background:var(--card);border:2px solid #E0E0E0;border-radius:14px;cursor:pointer;
+  font-size:16px;font-weight:600;box-shadow:var(--shadow);
+}
+.review-toggle.on{border-color:var(--primary);background:#F0EBFF}
+.review-toggle .rt-box{
+  width:44px;height:26px;border-radius:13px;background:#ccc;position:relative;flex-shrink:0;transition:background .2s;
+}
+.review-toggle.on .rt-box{background:var(--primary)}
+.review-toggle .rt-knob{
+  position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;
+}
+.review-toggle.on .rt-knob{left:21px}
 /* Image viewer */
 .image-viewer{
   display:none;position:fixed;top:0;left:0;right:0;bottom:0;
@@ -434,6 +449,7 @@ const state = {
   reviewIndex: 0,
   reviewFilter: null,
   reviewCollapsedLibs: {},
+  reviewExcludeGreen: false, // 乱序复习时排除已会(🟢)的单词
   showHiddenLibs: false, // 首页是否展开显示隐藏的词库
   storyLibs: [],
   stories: [],
@@ -976,6 +992,8 @@ function renderGroup(){
   if(!group){ navigateLibrary(state.currentLibraryId); return; }
 
   let words = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===group.id));
+  const exCount = words.filter(w=>w.label!=='green').length;
+  const reviewCount = state.reviewExcludeGreen ? exCount : words.length;
   const sortPref = getSortPref();
   if(sortPref.words && sortPref.words[lib.id] === 'name'){
     words = sortByText(words, 'english');
@@ -987,7 +1005,13 @@ function renderGroup(){
       <div class="back-title">📄 ${escapeHtml(group.name)}</div>
     </div>
     <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord('${lib.id}','${group.id}')">➕ 添加单词</button>
-    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="startReviewGroup('${lib.id}','${group.id}')">🔀 本组乱序复习 (${words.length})</button>
+    <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center">
+      <button class="btn btn-green" style="flex:1" onclick="startReviewGroup('${lib.id}','${group.id}')">🔀 本组乱序复习 (${reviewCount})</button>
+      <div class="review-toggle ${state.reviewExcludeGreen?'on':''}" onclick="toggleReviewExcludeGreen()" style="flex-shrink:0;margin-bottom:0">
+        <div class="rt-box"><div class="rt-knob"></div></div>
+        <span>🙈 排除已会</span>
+      </div>
+    </div>
     <div style="text-align:right;margin-bottom:8px">
       <button class="sort-chip ${sortPref.words && sortPref.words[lib.id]==='name'?'active':''}" onclick="toggleLibWordSort('${lib.id}')">${sortPref.words && sortPref.words[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
@@ -1729,18 +1753,25 @@ function renderReviewSelect(){
     ${optionsHTML}
   `;
 }
+function toggleReviewExcludeGreen(){
+  state.reviewExcludeGreen = !state.reviewExcludeGreen;
+  refreshCurrentPage();
+}
 function startReviewAll(){
-  const words = state.words.slice();
+  let words = state.words.slice();
+  if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
   if(!words.length){ showToast('没有单词可以复习'); return; }
   beginReview(shuffle(words));
 }
 function startReviewLibrary(libId){
-  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
+  let words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
+  if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
   if(!words.length){ showToast('该词库没有单词'); return; }
   beginReview(shuffle(words));
 }
 function startReviewGroup(libId, groupId){
-  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
+  let words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
+  if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
   if(!words.length){ showToast('该分组没有单词'); return; }
   beginReview(shuffle(words));
 }
@@ -1775,7 +1806,7 @@ async function renderReview(){
     <div class="review-progress">第 ${state.reviewIndex+1} / ${state.reviewWords.length} 个</div>`;
 
   if(!revealed){
-    // 第一阶段：只出单词（不出图片），放哭脸和上一个/下一个按钮
+    // 第一阶段：出单词 + 三标签 + 看图按钮（不强制改状态）
     document.getElementById('page-review').innerHTML = `
       ${progressHTML}
       <div class="review-card">
@@ -1783,16 +1814,19 @@ async function renderReview(){
         <div class="review-english">${escapeHtml(word.english)}</div>
         <div class="review-chinese">${escapeHtml(word.chinese)}</div>
       </div>
-      <div class="review-faces">
-        <button class="review-face-btn cry alone" onclick="reviewCry()">😭</button>
+      <div class="review-labels">
+        <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴 不会</div>
+        <div class="review-label-btn yellow ${word.label==='yellow'?'active':''}" onclick="setReviewLabel('yellow')">🟡 想一想</div>
+        <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
       </div>
       <div class="btn-row">
         <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>⬅️ 上一个</button>
+        <button class="btn btn-white" onclick="revealReview()">👀 看图</button>
         <button class="btn btn-primary" onclick="nextReviewWord()">下一个 ➡️</button>
       </div>
     `;
   } else {
-    // 第二阶段：点击哭脸后，展示图片帮助记忆
+    // 第二阶段：看图，展示图片帮助记忆 + 三标签
     let imagesHTML = '';
     if(images.length > 0){
       imagesHTML = images.map(img=>
@@ -1819,11 +1853,7 @@ async function renderReview(){
     `;
   }
 }
-function reviewCry(){
-  const word = state.reviewWords[state.reviewIndex];
-  if(!word) return;
-  word.label = 'red';
-  saveWords();
+function revealReview(){
   state.reviewRevealed = true;
   renderReview();
 }
