@@ -128,8 +128,17 @@ textarea.form-input{resize:vertical;min-height:60px}
   display:flex;align-items:center;justify-content:center;font-size:36px;
   cursor:pointer;overflow:hidden;position:relative;background:#FAFAFA;
 }
-.image-slot img{width:100%;height:100%;object-fit:cover}
+.image-slot img{width:100%;height:100%;object-fit:cover;user-select:none;-webkit-user-drag:none}
 .image-slot.filled{border-style:solid;border-color:var(--green)}
+.image-slot.draggable{cursor:grab}
+.image-slot.draggable:active{cursor:grabbing}
+.image-slot.dragging{opacity:.45}
+.image-slot.drag-over{box-shadow:0 0 0 3px var(--primary-l);border-color:var(--primary)}
+.image-slot .img-order{
+  position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;
+  background:var(--primary);color:#fff;font-size:12px;line-height:22px;
+  text-align:center;z-index:2;font-weight:700;
+}
 .image-slot .remove-btn{
   position:absolute;top:2px;right:2px;width:28px;height:28px;
   background:rgba(255,0,0,.8);color:#fff;border:none;border-radius:50%;
@@ -418,6 +427,12 @@ async function dbGetImagesByWord(wordId){
       if(!store.indexNames.contains('wordId')){
         result = result.filter(i=>i.wordId===wordId);
       }
+      // 按 sort 排序（旧数据无 sort 字段排到最后），保证拖拽排序持久化
+      result.sort((a,b)=>{
+        const sa = (a.sort===undefined ? 999 : a.sort);
+        const sb = (b.sort===undefined ? 999 : b.sort);
+        return sa - sb;
+      });
       resolve(result);
     };
     req.onerror = ()=>reject(req.error);
@@ -890,21 +905,7 @@ function renderWordEdit(){
   const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
   const labelText = {red:'不会',yellow:'想一想',green:'会'};
 
-  // Image slots
-  let slotsHTML = '';
-  for(let i=0; i<5; i++){
-    if(ew.images[i]){
-      slotsHTML += `
-        <div class="image-slot filled">
-          <img src="${ew.images[i].data}" alt="" onclick="showImageFullscreen('${ew.images[i].data}')">
-          <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
-        </div>`;
-    } else {
-      slotsHTML += `<div class="image-slot" onclick="triggerImageUpload()">+</div>`;
-    }
-  }
-
-  // Placement checkboxes are rendered by renderWordEditPlacements()
+  // Image slots are rendered by renderWordEditImages() (supports drag sorting)
   // to support collapse/expand without losing input values
 
   document.getElementById('page-word-edit').innerHTML = `
@@ -922,8 +923,8 @@ function renderWordEdit(){
         <textarea class="form-input" id="input-chinese" placeholder="输入备注内容，支持任何文字">${escapeHtml(ew.chinese)}</textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">📷 图片（最多5张）</label>
-        <div class="image-slots" id="image-slots">${slotsHTML}</div>
+        <label class="form-label">📷 图片（最多5张，按住拖动可排序）</label>
+        <div class="image-slots" id="image-slots"></div>
       </div>
       <div class="form-group">
         <label class="form-label">颜色标记</label>
@@ -938,6 +939,7 @@ function renderWordEdit(){
     </div>
   `;
   renderWordEditPlacements();
+  renderWordEditImages();
 }
 function setEditLabel(label){
   state.editingWord.label = label;
@@ -1043,8 +1045,14 @@ function renderWordEditImages(){
   for(let i=0; i<5; i++){
     if(ew.images[i]){
       slotsHTML += `
-        <div class="image-slot filled">
-          <img src="${ew.images[i].data}" alt="" onclick="showImageFullscreen('${ew.images[i].data}')">
+        <div class="image-slot filled draggable" draggable="true"
+             ondragstart="dragImageStart(event, ${i})"
+             ondragover="dragImageOver(event, ${i})"
+             ondragleave="dragImageLeave(event)"
+             ondrop="dragImageDrop(event, ${i})"
+             ondragend="dragImageEnd(event)">
+          <span class="img-order">${i+1}</span>
+          <img src="${ew.images[i].data}" alt="" draggable="false" onclick="showImageFullscreen('${ew.images[i].data}')">
           <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
         </div>`;
     } else {
@@ -1052,6 +1060,41 @@ function renderWordEditImages(){
     }
   }
   document.getElementById('image-slots').innerHTML = slotsHTML;
+}
+// 图片拖拽排序
+let dragImageIndex = null;
+function dragImageStart(e, index){
+  dragImageIndex = index;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(index));
+  try{ e.dataTransfer.setData('text/uri-list', ''); }catch(err){}
+  e.currentTarget.classList.add('dragging');
+}
+function dragImageOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function dragImageLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+function dragImageDrop(e, targetIndex){
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('drag-over');
+  if(dragImageIndex===null || dragImageIndex===targetIndex){ dragImageIndex=null; return; }
+  const ew = state.editingWord;
+  const moved = ew.images.splice(dragImageIndex, 1)[0];
+  ew.images.splice(targetIndex, 0, moved);
+  dragImageIndex = null;
+  renderWordEditImages();
+}
+function dragImageEnd(){
+  document.querySelectorAll('#image-slots .image-slot').forEach(s=>{
+    s.classList.remove('dragging');
+    s.classList.remove('drag-over');
+  });
+  dragImageIndex = null;
 }
 function removeImageFromEditing(index){
   state.editingWord.images.splice(index, 1);
@@ -1150,10 +1193,10 @@ async function saveWord(){
 
   // Save new images / delete removed images (IndexedDB 异常时不影响单词文字保存)
   try{
+    // 按当前数组顺序写入排序号，保证拖拽排序可持久化
     for(const img of ew.images){
-      if(img.isNew){
-        await dbSaveImage({id:img.id, wordId:ew.id, data:img.data});
-      }
+      img.sort = ew.images.indexOf(img);
+      await dbSaveImage({id:img.id, wordId:ew.id, data:img.data, sort:img.sort});
     }
     const currentIds = ew.images.map(i=>i.id);
     for(const oldId of ew.originalImageIds){
