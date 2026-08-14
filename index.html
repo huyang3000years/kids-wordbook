@@ -6,7 +6,7 @@
 <title>📚 小朋友英语单词本</title>
 <style>
 :root{
-  --bg:#FFF9F0; --card:#FFFFFF; --primary:#6C5CE7; --primary-l:#A29BFE;
+  --bg:#FFF9F0; --card:#FFFFFF; --primary:#6C5CE7; --primary-d:#5341C9; --primary-l:#A29BFE;
   --green:#6BCB77; --yellow:#FFD93D; --red:#FF7675; --blue:#74B9FF;
   --orange:#FFA07A; --text:#2D3436; --text-l:#636E72; --radius:16px;
   --shadow:0 4px 12px rgba(0,0,0,.08);
@@ -95,7 +95,8 @@ body{
 }
 .word-thumb img{width:100%;height:100%;object-fit:cover}
 .word-main{flex:1;min-width:0}
-.word-english{font-size:26px;font-weight:700;color:var(--primary)}
+.word-english{font-size:26px;font-weight:700;color:var(--primary);cursor:pointer}
+.word-english:hover{text-decoration:underline;color:var(--primary-d)}
 .word-chinese{
   font-size:20px;color:var(--text-l);white-space:pre-wrap;word-break:break-word;
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
@@ -192,6 +193,22 @@ textarea.form-input{resize:vertical;min-height:60px}
   flex:1;padding:16px;border-radius:14px;border:3px solid #E0E0E0;
   font-size:20px;font-weight:600;cursor:pointer;text-align:center;background:#fff;
 }
+/* Review faces */
+.review-hint{font-size:20px;color:var(--text-l);margin-bottom:8px}
+.review-faces{display:flex;gap:16px;margin-bottom:16px}
+.review-face-btn{
+  flex:1;min-height:140px;border-radius:20px;cursor:pointer;
+  font-size:60px;display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow);transition:transform .12s;font-family:inherit;
+}
+.review-face-btn:active{transform:scale(.94)}
+.review-face-btn.cry{background:#FFE9E9;border:4px solid var(--red)}
+.review-face-btn.alone{flex:0 0 64%;margin:0 auto}
+.review-lib-arrow{
+  padding:8px 14px;font-size:18px;color:var(--primary);background:#F4F4F4;
+  border-radius:10px;flex-shrink:0;transition:transform .2s;user-select:none;
+}
+.review-lib-arrow.open{transform:rotate(180deg)}
 .review-label-btn.red.active{background:var(--red);color:#fff;border-color:var(--red)}
 .review-label-btn.yellow.active{background:var(--yellow);color:#fff;border-color:var(--yellow)}
 .review-label-btn.green.active{background:var(--green);color:#fff;border-color:var(--green)}
@@ -320,7 +337,7 @@ const LS_LIBRARIES = 'wordbook_libraries';
 const LS_WORDS = 'wordbook_words';
 const LS_SORT = 'wordbook_sort';
 const DB_NAME = 'KidsWordbookDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_IMAGES = 'images';
 
 const state = {
@@ -330,9 +347,11 @@ const state = {
   currentLibraryId: null,
   currentGroupId: null,
   editingWord: null,
+  editReturn: null,
   reviewWords: [],
   reviewIndex: 0,
   reviewFilter: null,
+  reviewCollapsedLibs: {},
 };
 
 /* ========== localStorage ========== */
@@ -358,7 +377,14 @@ function openDB(){
     req.onupgradeneeded = e=>{
       const db = e.target.result;
       if(!db.objectStoreNames.contains(STORE_IMAGES)){
-        db.createObjectStore(STORE_IMAGES,{keyPath:'id'});
+        const store = db.createObjectStore(STORE_IMAGES,{keyPath:'id'});
+        store.createIndex('wordId','wordId',{unique:false});
+      } else {
+        // 旧版本数据库升级：补充 wordId 索引
+        const store = req.transaction.objectStore(STORE_IMAGES);
+        if(!store.indexNames.contains('wordId')){
+          store.createIndex('wordId','wordId',{unique:false});
+        }
       }
     };
     req.onsuccess = ()=>resolve(req.result);
@@ -378,8 +404,22 @@ async function dbGetImagesByWord(wordId){
   const db = await openDB();
   return new Promise((resolve,reject)=>{
     const tx = db.transaction(STORE_IMAGES,'readonly');
-    const req = tx.objectStore(STORE_IMAGES).getAll();
-    req.onsuccess = ()=>resolve(req.result.filter(i=>i.wordId===wordId));
+    const store = tx.objectStore(STORE_IMAGES);
+    let req;
+    try{
+      if(store.indexNames.contains('wordId')){
+        req = store.index('wordId').getAll(wordId);
+      } else {
+        req = store.getAll();
+      }
+    }catch(e){ reject(e); return; }
+    req.onsuccess = ()=>{
+      let result = req.result || [];
+      if(!store.indexNames.contains('wordId')){
+        result = result.filter(i=>i.wordId===wordId);
+      }
+      resolve(result);
+    };
     req.onerror = ()=>reject(req.error);
   });
 }
@@ -560,6 +600,7 @@ function renderHome(){
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词</div>
           </div>
+          <button class="btn btn-small btn-white" title="导出 Word" onclick="event.stopPropagation();exportLibWord('${lib.id}')">📤</button>
           <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameLibrary('${lib.id}')">✏️</button>
           <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteLibrary('${lib.id}')">🗑️</button>
         </div>
@@ -577,7 +618,7 @@ function renderHome(){
     </div>
     <div class="stats-row">
       <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">全部</div></div>
-      <div class="stat-box red"><div class="stat-num">${redCount}</div><div class="stat-label">🔴 不会</div></div>
+      <div class="stat-box red" style="cursor:pointer" onclick="navigateAllWords('red')"><div class="stat-num">${redCount}</div><div class="stat-label">🔴 不会</div></div>
       <div class="stat-box yellow"><div class="stat-num">${yellowCount}</div><div class="stat-label">🟡 想想</div></div>
       <div class="stat-box green"><div class="stat-num">${greenCount}</div><div class="stat-label">🟢 会</div></div>
     </div>
@@ -627,6 +668,7 @@ function renderLibrary(){
             <div class="group-name">${escapeHtml(g.name)}</div>
             <div class="group-meta">${wordCount} 个单词</div>
           </div>
+          <button class="btn btn-small btn-white" title="导出 Word" onclick="event.stopPropagation();exportGroupWord('${lib.id}','${g.id}')">📤</button>
           <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameGroup('${lib.id}','${g.id}')">✏️</button>
           <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteGroup('${lib.id}','${g.id}')">🗑️</button>
         </div>
@@ -654,6 +696,7 @@ function renderLibrary(){
     </div>
     <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord('${lib.id}')">➕ 添加单词到此词库</button>
     <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="navigateAddToLib('${lib.id}')">📥 从已有单词添加</button>
+    <button class="btn btn-orange btn-block" style="margin-bottom:16px" onclick="exportLibWord('${lib.id}')">📤 导出整个词库为 Word</button>
     <div id="lib-words-list"></div>
   `;
   renderWordList('lib-words-list', libWords);
@@ -711,7 +754,7 @@ function renderWordList(containerId, words){
       <div class="word-card-top">
         <div class="word-thumb" id="thumb-${w.id}" onclick="loadThumbDetail('${w.id}')">🖼️</div>
         <div class="word-main">
-          <div class="word-english">${escapeHtml(w.english)}</div>
+          <div class="word-english" onclick="editWord('${w.id}')">${escapeHtml(w.english)}</div>
           <div class="word-chinese">${escapeHtml(w.chinese)}</div>
         </div>
         <div class="label-dot ${w.label}" onclick="cycleLabel('${w.id}',this)">${labelEmoji[w.label]}</div>
@@ -726,34 +769,61 @@ function renderWordList(containerId, words){
   loadThumbnails(words.map(w=>w.id));
 }
 async function loadThumbnails(wordIds){
+  let allImages = [];
+  try{
+    allImages = await dbGetAllImages();
+  }catch(err){
+    // IndexedDB 读取失败时，缩略图保持占位符，不影响单词列表
+  }
+  // 按 wordId 分组，一次查询即可为全部单词提供缩略图
+  const byWord = {};
+  for(const img of allImages){
+    if(!img || !img.wordId) continue;
+    if(!byWord[img.wordId]) byWord[img.wordId] = [];
+    byWord[img.wordId].push(img);
+  }
   for(const id of wordIds){
-    const images = await dbGetImagesByWord(id);
-    if(images.length > 0){
+    const images = byWord[id] || [];
+    if(images.length > 0 && images[0].data){
       const el = document.getElementById('thumb-'+id);
       if(el){
-        el.innerHTML = `<img src="${images[0].data}" alt="">`;
+        el.innerHTML = `<img src="${images[0].data}" alt="" onerror="this.parentNode.innerHTML='🖼️'">`;
         el.onclick = ()=>showImageFullscreen(images[0].data);
       }
     }
   }
 }
 async function loadThumbDetail(wordId){
-  const images = await dbGetImagesByWord(wordId);
-  if(images.length > 0){
+  let images = [];
+  try{
+    images = await dbGetImagesByWord(wordId);
+  }catch(err){}
+  if(images.length > 0 && images[0].data){
     showImageFullscreen(images[0].data);
   }
 }
 
 /* ========== All Words Page ========== */
-function navigateAllWords(){
+function navigateAllWords(filter){
+  state.allWordsFilter = filter || null;
   renderAllWords();
   showPage('page-all-words');
 }
+function getFilteredAllWords(){
+  let words = state.words;
+  if(state.allWordsFilter === 'red'){
+    words = words.filter(w=>w.label==='red');
+  }
+  return words;
+}
 function renderAllWords(){
+  const filter = state.allWordsFilter;
+  const words = getFilteredAllWords();
+  const title = filter === 'red' ? '🔴 不会的单词' : '📖 全部单词';
   document.getElementById('page-all-words').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
-      <div class="back-title">📖 全部单词 (${state.words.length})</div>
+      <div class="back-title">${title} (${words.length})</div>
     </div>
     <div class="form-group" style="margin-bottom:16px">
       <input type="text" class="form-input" id="search-input" placeholder="🔍 搜索单词或备注..." autocomplete="off" oninput="searchWords(this.value)">
@@ -761,16 +831,16 @@ function renderAllWords(){
     <button class="btn btn-primary btn-block" style="margin-bottom:16px" onclick="startNewWord()">➕ 添加单词</button>
     <div id="all-words-list"></div>
   `;
-  renderWordList('all-words-list', state.words);
+  renderWordList('all-words-list', words);
 }
 function searchWords(query){
   const q = query.trim().toLowerCase();
   const list = document.getElementById('all-words-list');
   if(!q){
-    renderWordList('all-words-list', state.words);
+    renderWordList('all-words-list', getFilteredAllWords());
     return;
   }
-  const filtered = state.words.filter(w=>
+  const filtered = getFilteredAllWords().filter(w=>
     w.english.toLowerCase().includes(q) ||
     (w.chinese || '').toLowerCase().includes(q)
   );
@@ -779,6 +849,8 @@ function searchWords(query){
 
 /* ========== Word Edit Page ========== */
 function startNewWord(preLib, preGroup){
+  recordEditReturn();
+  state.editPlacementsCollapsed = true;  // 归属词库与分组默认折叠
   state.editingWord = {
     id: genId('word'),
     english: '',
@@ -797,6 +869,8 @@ function editWord(wordId){
   startEditExisting(word);
 }
 async function startEditExisting(word){
+  recordEditReturn();
+  state.editPlacementsCollapsed = true;  // 归属词库与分组默认折叠
   const images = await dbGetImagesByWord(word.id);
   state.editingWord = {
     id: word.id,
@@ -1012,15 +1086,50 @@ function cancelEditWord(){
   state.editingWord = null;
   goBackFromEdit();
 }
+function recordEditReturn(){
+  const p = state.currentPage;
+  const scrollY = window.scrollY || 0;
+  if(p === 'page-all-words'){
+    const se = document.getElementById('search-input');
+    state.editReturn = {type:'allWords', filter: state.allWordsFilter || null, scrollY, search: se ? se.value : ''};
+  } else if(p === 'page-group'){
+    state.editReturn = {type:'group', libraryId: state.currentLibraryId, groupId: state.currentGroupId, scrollY};
+  } else if(p === 'page-library'){
+    state.editReturn = {type:'library', libraryId: state.currentLibraryId, scrollY};
+  } else if(p === 'page-add-to-lib'){
+    state.editReturn = {type:'addToLib', libraryId: state.currentLibraryId, scrollY};
+  } else {
+    state.editReturn = {type:'home', scrollY};
+  }
+}
 function goBackFromEdit(){
-  if(state.currentGroupId && state.currentLibraryId){
+  const r = state.editReturn;
+  const restoreY = (r && r.scrollY) ? r.scrollY : 0;
+  if(r && r.type === 'allWords'){
+    navigateAllWords(r.filter);
+    if(r.search){
+      const se = document.getElementById('search-input');
+      if(se){
+        se.value = r.search;
+        searchWords(r.search);
+      }
+    }
+  } else if(r && r.type === 'group'){
+    navigateGroup(r.libraryId, r.groupId);
+  } else if(r && r.type === 'library'){
+    navigateLibrary(r.libraryId);
+  } else if(r && r.type === 'addToLib'){
+    navigateAddToLib(r.libraryId);
+  } else if(state.currentGroupId && state.currentLibraryId){
     navigateGroup(state.currentLibraryId, state.currentGroupId);
   } else if(state.currentLibraryId){
     navigateLibrary(state.currentLibraryId);
-  } else if(state.currentPage === 'page-all-words'){
-    navigateAllWords();
   } else {
     navigateHome();
+  }
+  state.editReturn = null;
+  if(restoreY > 0){
+    requestAnimationFrame(()=>window.scrollTo(0, restoreY));
   }
 }
 async function saveWord(){
@@ -1039,18 +1148,21 @@ async function saveWord(){
   ew.english = english;
   ew.chinese = chinese;
 
-  // Save new images to IndexedDB
-  for(const img of ew.images){
-    if(img.isNew){
-      await dbSaveImage({id:img.id, wordId:ew.id, data:img.data});
+  // Save new images / delete removed images (IndexedDB 异常时不影响单词文字保存)
+  try{
+    for(const img of ew.images){
+      if(img.isNew){
+        await dbSaveImage({id:img.id, wordId:ew.id, data:img.data});
+      }
     }
-  }
-  // Delete removed images
-  const currentIds = ew.images.map(i=>i.id);
-  for(const oldId of ew.originalImageIds){
-    if(!currentIds.includes(oldId)){
-      await dbDeleteImage(oldId);
+    const currentIds = ew.images.map(i=>i.id);
+    for(const oldId of ew.originalImageIds){
+      if(!currentIds.includes(oldId)){
+        await dbDeleteImage(oldId);
+      }
     }
+  }catch(err){
+    // 忽略图片存储错误，单词文字照常保存
   }
   // Save word
   const wordData = {
@@ -1219,11 +1331,11 @@ function renderAddToLibList(words, lib){
     return `
       <div class="word-card ${w.label}">
         <div class="word-card-top">
-          <div class="word-main">
-            <div class="word-english">${escapeHtml(w.english)}</div>
-            <div class="word-chinese">${escapeHtml(w.chinese)}</div>
-          </div>
-          <div class="label-dot ${w.label}" style="cursor:default">${labelEmoji[w.label]}</div>
+        <div class="word-main">
+          <div class="word-english" onclick="editWord('${w.id}')">${escapeHtml(w.english)}</div>
+          <div class="word-chinese">${escapeHtml(w.chinese)}</div>
+        </div>
+        <div class="label-dot ${w.label}" style="cursor:default">${labelEmoji[w.label]}</div>
         </div>
         <div class="placement-section">${groupsHTML}</div>
       </div>
@@ -1293,7 +1405,9 @@ function renderReviewSelect(){
     </div>`;
 
   // Per library options
+  const collapsedLibs = state.reviewCollapsedLibs || {};
   for(const lib of state.libraries){
+    const libCollapsed = !!collapsedLibs[lib.id];
     const libWordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id)).length;
     optionsHTML += `
       <div class="lib-card" style="cursor:pointer" onclick="startReviewLibrary('${lib.id}')">
@@ -1302,17 +1416,20 @@ function renderReviewSelect(){
           <div class="lib-name">${escapeHtml(lib.name)}</div>
           <div class="lib-meta">全部 ${libWordCount} 词</div>
         </div>
+        <span class="review-lib-arrow ${libCollapsed?'':'open'}" onclick="event.stopPropagation();toggleReviewLibCollapse('${lib.id}')">▾</span>
       </div>`;
-    for(const g of lib.groups){
-      const gWordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id)).length;
-      optionsHTML += `
-        <div class="group-card" style="margin-left:20px" onclick="startReviewGroup('${lib.id}','${g.id}')">
-          <div class="group-icon">📄</div>
-          <div class="group-info">
-            <div class="group-name">${escapeHtml(g.name)}</div>
-            <div class="group-meta">${gWordCount} 个单词</div>
-          </div>
-        </div>`;
+    if(!libCollapsed){
+      for(const g of lib.groups){
+        const gWordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id)).length;
+        optionsHTML += `
+          <div class="group-card" style="margin-left:20px" onclick="startReviewGroup('${lib.id}','${g.id}')">
+            <div class="group-icon">📄</div>
+            <div class="group-info">
+              <div class="group-name">${escapeHtml(g.name)}</div>
+              <div class="group-meta">${gWordCount} 个单词</div>
+            </div>
+          </div>`;
+      }
     }
   }
 
@@ -1339,9 +1456,15 @@ function startReviewGroup(libId, groupId){
   if(!words.length){ showToast('该分组没有单词'); return; }
   beginReview(shuffle(words));
 }
+function toggleReviewLibCollapse(libId){
+  if(!state.reviewCollapsedLibs) state.reviewCollapsedLibs = {};
+  state.reviewCollapsedLibs[libId] = !state.reviewCollapsedLibs[libId];
+  renderReviewSelect();
+}
 function beginReview(words){
   state.reviewWords = words;
   state.reviewIndex = 0;
+  state.reviewRevealed = false;
   renderReview();
   showPage('page-review');
 }
@@ -1352,37 +1475,69 @@ async function renderReview(){
   }
   const word = state.reviewWords[state.reviewIndex];
   const images = await dbGetImagesByWord(word.id);
+  const revealed = !!state.reviewRevealed;
   const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
   const labelText = {red:'不会',yellow:'想一想',green:'会'};
 
-  let imagesHTML = '';
-  if(images.length > 0){
-    imagesHTML = images.map(img=>
-      `<img class="review-img" src="${img.data}" alt="" onclick="showImageFullscreen('${img.data}')">`
-    ).join('');
-  }
-
-  document.getElementById('page-review').innerHTML = `
+  const progressHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="endReview()">←</button>
       <div class="back-title">🔀 乱序复习</div>
     </div>
-    <div class="review-progress">第 ${state.reviewIndex+1} / ${state.reviewWords.length} 个</div>
-    <div class="review-card">
-      ${imagesHTML ? `<div class="review-images">${imagesHTML}</div>` : '<div style="font-size:48px;margin-bottom:12px">📝</div>'}
-      <div class="review-english">${escapeHtml(word.english)}</div>
-      <div class="review-chinese">${escapeHtml(word.chinese)}</div>
-    </div>
-    <div class="review-labels">
-      <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴 不会</div>
-      <div class="review-label-btn yellow ${word.label==='yellow'?'active':''}" onclick="setReviewLabel('yellow')">🟡 想一想</div>
-      <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
-    </div>
-    <div class="btn-row">
-      <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>⬅️ 上一个</button>
-      <button class="btn btn-primary" onclick="nextReviewWord()">下一条 ➡️</button>
-    </div>
-  `;
+    <div class="review-progress">第 ${state.reviewIndex+1} / ${state.reviewWords.length} 个</div>`;
+
+  if(!revealed){
+    // 第一阶段：只出单词（不出图片），放哭脸和上一个/下一个按钮
+    document.getElementById('page-review').innerHTML = `
+      ${progressHTML}
+      <div class="review-card">
+        <div class="review-hint">🤔 认识这个单词吗？</div>
+        <div class="review-english">${escapeHtml(word.english)}</div>
+        <div class="review-chinese">${escapeHtml(word.chinese)}</div>
+      </div>
+      <div class="review-faces">
+        <button class="review-face-btn cry alone" onclick="reviewCry()">😭</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>⬅️ 上一个</button>
+        <button class="btn btn-primary" onclick="nextReviewWord()">下一个 ➡️</button>
+      </div>
+    `;
+  } else {
+    // 第二阶段：点击哭脸后，展示图片帮助记忆
+    let imagesHTML = '';
+    if(images.length > 0){
+      imagesHTML = images.map(img=>
+        `<img class="review-img" src="${img.data}" alt="" onclick="showImageFullscreen('${img.data}')">`
+      ).join('');
+    }
+    document.getElementById('page-review').innerHTML = `
+      ${progressHTML}
+      <div class="review-card">
+        <div class="review-hint">👀 看看图片，记住它吧！</div>
+        <div class="review-english">${escapeHtml(word.english)}</div>
+        <div class="review-chinese">${escapeHtml(word.chinese)}</div>
+        ${imagesHTML ? `<div class="review-images">${imagesHTML}</div>` : '<div style="font-size:48px;margin:16px 0">📝</div>'}
+      </div>
+      <div class="review-labels">
+        <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴 不会</div>
+        <div class="review-label-btn yellow ${word.label==='yellow'?'active':''}" onclick="setReviewLabel('yellow')">🟡 想一想</div>
+        <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>⬅️ 上一个</button>
+        <button class="btn btn-primary" onclick="nextReviewWord()">下一个 ➡️</button>
+      </div>
+    `;
+  }
+}
+function reviewCry(){
+  const word = state.reviewWords[state.reviewIndex];
+  if(!word) return;
+  word.label = 'red';
+  saveWords();
+  state.reviewRevealed = true;
+  renderReview();
 }
 function setReviewLabel(label){
   const word = state.reviewWords[state.reviewIndex];
@@ -1394,11 +1549,13 @@ function setReviewLabel(label){
   });
 }
 function nextReviewWord(){
+  state.reviewRevealed = false;
   state.reviewIndex++;
   renderReview();
 }
 function prevReviewWord(){
   if(state.reviewIndex > 0){
+    state.reviewRevealed = false;
     state.reviewIndex--;
     renderReview();
   }
@@ -1406,6 +1563,7 @@ function prevReviewWord(){
 function endReview(){
   state.reviewWords = [];
   state.reviewIndex = 0;
+  state.reviewRevealed = false;
   navigateReviewSelect();
 }
 function renderReviewComplete(){
@@ -1425,6 +1583,80 @@ function renderReviewComplete(){
       <button class="btn btn-primary btn-large" onclick="endReview()">返回</button>
     </div>
   `;
+}
+
+/* ========== Export to Word ========== */
+function sanitizeFilename(name){
+  return String(name||'').replace(/[\\/:*?"<>|]/g,'_');
+}
+async function exportWordsToWord(words, title){
+  if(!words.length){ showToast('没有单词可导出'); return; }
+  showToast('正在生成 Word...');
+  const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
+  const labelText = {red:'不会',yellow:'想一想',green:'会'};
+  let rowsHTML = '';
+  for(const w of words){
+    const images = await dbGetImagesByWord(w.id);
+    let imgCell = '';
+    if(images.length > 0){
+      imgCell = images.map(img=>
+        `<img src="${img.data}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;margin:2px" alt="">`
+      ).join('');
+    }
+    rowsHTML += `
+      <tr>
+        <td style="border:1px solid #bbb;padding:8px;font-size:14px;vertical-align:middle">${escapeHtml(w.english)}</td>
+        <td style="border:1px solid #bbb;padding:8px;font-size:14px;vertical-align:middle">${escapeHtml(w.chinese)}</td>
+        <td style="border:1px solid #bbb;padding:8px;vertical-align:middle">${imgCell}</td>
+        <td style="border:1px solid #bbb;padding:8px;font-size:14px;text-align:center;vertical-align:middle">${labelEmoji[w.label]} ${labelText[w.label]}</td>
+      </tr>`;
+  }
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>
+body{font-family:"Microsoft YaHei","SimSun",Arial,sans-serif}
+h1{color:#6C5CE7;font-size:22px;text-align:center;margin:8px 0}
+.meta{text-align:center;color:#999;font-size:11px;margin-bottom:14px}
+table{border-collapse:collapse;width:100%}
+th{background:#6C5CE7;color:#fff;border:1px solid #6C5CE7;padding:10px;font-size:15px}
+</style>
+</head>
+<body>
+<h1>${escapeHtml(title)}</h1>
+<div class="meta">导出时间：${new Date().toLocaleString()} · 共 ${words.length} 个单词</div>
+<table>
+<tr><th>单词</th><th>备注</th><th>图片</th><th>标签</th></tr>
+${rowsHTML}
+</table>
+</body>
+</html>`;
+  const blob = new Blob(['\ufeff' + html], {type:'application/msword;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = sanitizeFilename(title) + '.doc';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Word 已导出！');
+}
+async function exportLibWord(libId){
+  const lib = state.libraries.find(l=>l.id===libId);
+  if(!lib) return;
+  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
+  await exportWordsToWord(words, `单词表_${lib.name}`);
+}
+async function exportGroupWord(libId, groupId){
+  const lib = state.libraries.find(l=>l.id===libId);
+  if(!lib) return;
+  const group = lib.groups.find(g=>g.id===groupId);
+  if(!group) return;
+  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
+  await exportWordsToWord(words, `单词表_${lib.name}_${group.name}`);
 }
 
 /* ========== Backup ========== */
