@@ -44,6 +44,7 @@ body{
 .btn-green{background:var(--green);color:#fff}
 .btn-blue{background:var(--blue);color:#fff}
 .btn-orange{background:var(--orange);color:#fff}
+.btn-purple{background:var(--primary);color:#fff}
 .btn-red{background:var(--red);color:#fff}
 .btn-gray{background:#DDD;color:#555}
 .btn-white{background:#fff;color:var(--text);border:2px solid #E0E0E0}
@@ -61,8 +62,11 @@ body{
 /* Library card */
 .lib-card{
   background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;
-  box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;
+  box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;position:relative;
 }
+.lib-card.dragging{opacity:.45}
+.lib-card.drag-over{box-shadow:0 0 0 3px var(--primary-l);border-color:var(--primary)}
+.lib-card.hidden-lib{background:#F4F4F4;opacity:.55}
 .lib-icon{font-size:40px}
 .lib-info{flex:1;min-width:0}
 .lib-name{font-size:22px;font-weight:700}
@@ -296,6 +300,67 @@ textarea.form-input{resize:vertical;min-height:60px}
 .completion-screen .big-emoji{font-size:80px;margin-bottom:16px}
 .completion-screen h2{font-size:28px;color:var(--primary);margin-bottom:12px}
 .completion-screen p{font-size:20px;color:var(--text-l);margin-bottom:24px}
+/* ===== 看图说话 Story ===== */
+.story-card{
+  background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:12px;
+  box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;cursor:pointer;
+}
+.story-cover{
+  width:76px;height:76px;border-radius:12px;background:#F0F0F0;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;
+}
+.story-cover img{width:100%;height:100%;object-fit:cover}
+.story-info{flex:1;min-width:0}
+.story-name{font-size:22px;font-weight:700;color:var(--primary)}
+.story-meta{font-size:14px;color:var(--text-l)}
+.story-page-btn{font-size:18px;padding:10px 14px}
+/* 故事编辑页：每张图片一页 */
+.story-page-edit{
+  background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:14px;
+  box-shadow:var(--shadow);position:relative;
+}
+.story-page-num{
+  position:absolute;top:10px;left:10px;background:var(--primary);color:#fff;
+  border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:700;z-index:2;
+}
+.story-page-edit img{
+  width:100%;max-height:300px;object-fit:contain;border-radius:12px;
+  background:#F6F6F6;margin-bottom:10px;cursor:pointer;display:block;
+}
+.story-page-remove{
+  position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;
+  border:none;background:var(--red);color:#fff;font-size:18px;cursor:pointer;z-index:2;
+}
+.story-prompt-input{
+  width:100%;padding:12px 14px;font-size:18px;border:2px solid #E0E0E0;
+  border-radius:12px;font-family:inherit;background:#fff;resize:vertical;
+  min-height:60px;
+}
+.story-prompt-input:focus{outline:none;border-color:var(--primary)}
+.story-add-btn{
+  width:100%;padding:20px;font-size:22px;border:3px dashed var(--primary-l);
+  border-radius:var(--radius);background:#F8F7FF;color:var(--primary);
+  cursor:pointer;font-weight:700;font-family:inherit;margin-bottom:14px;
+}
+.story-add-btn:active{transform:scale(.98)}
+/* 故事查看页 */
+.story-view-header{text-align:center;margin-bottom:12px}
+.story-view-header .sv-title{font-size:26px;font-weight:700;color:var(--primary)}
+.story-view-progress{font-size:18px;color:var(--text-l);margin-top:4px}
+.story-view-image{
+  width:100%;max-height:52vh;object-fit:contain;border-radius:var(--radius);
+  background:#F6F6F6;box-shadow:var(--shadow);margin-bottom:14px;display:block;
+}
+.story-view-prompt{
+  background:var(--card);border-radius:var(--radius);padding:18px;font-size:24px;
+  line-height:1.8;box-shadow:var(--shadow);margin-bottom:16px;text-align:center;
+  white-space:pre-wrap;word-break:break-word;min-height:80px;
+}
+.story-view-nav{display:flex;gap:10px;align-items:center}
+.story-view-nav .btn{flex:1}
+.story-view-nav .sv-count{font-size:18px;color:var(--text-l);flex-shrink:0}
+.story-view-start-hint{font-size:18px;color:var(--text-l);text-align:center;margin-bottom:16px}
 </style>
 </head>
 <body>
@@ -309,6 +374,10 @@ textarea.form-input{resize:vertical;min-height:60px}
   <div id="page-add-to-lib" class="page hidden"></div>
   <div id="page-review-select" class="page hidden"></div>
   <div id="page-review" class="page hidden"></div>
+  <div id="page-story-home" class="page hidden"></div>
+  <div id="page-story-lib" class="page hidden"></div>
+  <div id="page-story-edit" class="page hidden"></div>
+  <div id="page-story-view" class="page hidden"></div>
 </div>
 
 <div id="image-viewer" class="image-viewer" onclick="closeImageViewer()">
@@ -338,6 +407,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 </div>
 
 <input type="file" id="image-file-input" accept="image/*" multiple style="display:none">
+<input type="file" id="story-image-input" accept="image/*" multiple style="display:none">
 <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none">
 
 <script>
@@ -345,9 +415,12 @@ textarea.form-input{resize:vertical;min-height:60px}
 const LS_LIBRARIES = 'wordbook_libraries';
 const LS_WORDS = 'wordbook_words';
 const LS_SORT = 'wordbook_sort';
+const LS_STORY_LIBS = 'wordbook_storyLibs';
+const LS_STORIES = 'wordbook_stories';
 const DB_NAME = 'KidsWordbookDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_IMAGES = 'images';
+const STORE_STORY_IMAGES = 'storyImages';
 
 const state = {
   libraries: [],
@@ -361,6 +434,19 @@ const state = {
   reviewIndex: 0,
   reviewFilter: null,
   reviewCollapsedLibs: {},
+  showHiddenLibs: false, // 首页是否展开显示隐藏的词库
+  storyLibs: [],
+  stories: [],
+  currentStoryLibId: null,
+  currentStoryGroupId: null,
+  editingStory: null,
+  editingStoryNewPages: [],  // 新上传待保存的页面图片 {pageId, data}
+  editingStoryOldPageIds: [], // 编辑前已有的页面 id（用于删除时清理图片）
+  storyPlacementsCollapsed: true, // 归属故事库与分组默认折叠
+  storyEditCollapsedLibs: {},
+  storyViewStory: null,
+  storyViewImages: [],
+  storyViewIndex: 0,
 };
 
 /* ========== localStorage ========== */
@@ -378,6 +464,20 @@ function loadWords(){
 function saveWords(){
   localStorage.setItem(LS_WORDS, JSON.stringify(state.words));
 }
+function loadStoryLibs(){
+  try{ return JSON.parse(localStorage.getItem(LS_STORY_LIBS)) || []; }
+  catch(e){ return []; }
+}
+function saveStoryLibs(){
+  localStorage.setItem(LS_STORY_LIBS, JSON.stringify(state.storyLibs));
+}
+function loadStories(){
+  try{ return JSON.parse(localStorage.getItem(LS_STORIES)) || []; }
+  catch(e){ return []; }
+}
+function saveStories(){
+  localStorage.setItem(LS_STORIES, JSON.stringify(state.stories));
+}
 
 /* ========== IndexedDB ========== */
 function openDB(){
@@ -394,6 +494,10 @@ function openDB(){
         if(!store.indexNames.contains('wordId')){
           store.createIndex('wordId','wordId',{unique:false});
         }
+      }
+      if(!db.objectStoreNames.contains(STORE_STORY_IMAGES)){
+        const stStore = db.createObjectStore(STORE_STORY_IMAGES,{keyPath:'id'});
+        stStore.createIndex('storyId','storyId',{unique:false});
       }
     };
     req.onsuccess = ()=>resolve(req.result);
@@ -471,6 +575,72 @@ async function dbClearAllImages(){
     tx.onerror = ()=>reject(tx.error);
   });
 }
+/* ===== 故事图片 ===== */
+async function dbSaveStoryImage(img){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_STORY_IMAGES,'readwrite');
+    tx.objectStore(STORE_STORY_IMAGES).put(img);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+async function dbDeleteStoryImage(id){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_STORY_IMAGES,'readwrite');
+    tx.objectStore(STORE_STORY_IMAGES).delete(id);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+async function dbGetStoryImages(storyId){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_STORY_IMAGES,'readonly');
+    const store = tx.objectStore(STORE_STORY_IMAGES);
+    let req;
+    try{
+      if(store.indexNames.contains('storyId')){
+        req = store.index('storyId').getAll(storyId);
+      } else {
+        req = store.getAll();
+      }
+    }catch(e){ reject(e); return; }
+    req.onsuccess = ()=>{
+      let result = req.result || [];
+      if(!store.indexNames.contains('storyId')){
+        result = result.filter(i=>i.storyId===storyId);
+      }
+      // 按 sort 排序（无 sort 字段排最后）
+      result.sort((a,b)=>{
+        const sa = (a.sort===undefined ? 999 : a.sort);
+        const sb = (b.sort===undefined ? 999 : b.sort);
+        return sa - sb;
+      });
+      resolve(result);
+    };
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function dbGetAllStoryImages(){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_STORY_IMAGES,'readonly');
+    const req = tx.objectStore(STORE_STORY_IMAGES).getAll();
+    req.onsuccess = ()=>resolve(req.result || []);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function dbClearAllStoryImages(){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE_STORY_IMAGES,'readwrite');
+    tx.objectStore(STORE_STORY_IMAGES).clear();
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
 
 /* ========== Utilities ========== */
 function genId(prefix){
@@ -524,6 +694,63 @@ function toggleLibWordSort(libId){
   p.words[libId] = p.words[libId] === 'name' ? 'default' : 'name';
   saveSortPref(p);
   refreshCurrentPage();
+}
+
+/* ========== Library Drag Sort ========== */
+let dragLibId = null;
+function dragLibStart(e, libId){
+  dragLibId = libId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', libId);
+  try{ e.dataTransfer.setData('text/uri-list', ''); }catch(err){}
+  e.currentTarget.classList.add('dragging');
+}
+function dragLibOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function dragLibLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+function dragLibDrop(e, targetLibId){
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('drag-over');
+  if(!dragLibId || dragLibId === targetLibId){ dragLibId = null; return; }
+  const from = state.libraries.findIndex(l=>l.id===dragLibId);
+  const to = state.libraries.findIndex(l=>l.id===targetLibId);
+  if(from < 0 || to < 0){ dragLibId = null; return; }
+  const moved = state.libraries.splice(from,1)[0];
+  state.libraries.splice(to,0,moved);
+  saveLibraries();
+  // 手动排序后切回“原顺序”模式，让新顺序立即可见
+  const p = getSortPref();
+  if(p.libs === 'name'){ p.libs = 'default'; saveSortPref(p); }
+  dragLibId = null;
+  renderHome();
+  showToast('词库顺序已更新');
+}
+function dragLibEnd(){
+  document.querySelectorAll('#page-home .lib-card').forEach(s=>{
+    s.classList.remove('dragging');
+    s.classList.remove('drag-over');
+  });
+  dragLibId = null;
+}
+
+/* ========== Library Hide ========== */
+function toggleHideLib(id){
+  const lib = state.libraries.find(l=>l.id===id);
+  if(!lib) return;
+  lib.hidden = !lib.hidden;
+  saveLibraries();
+  renderHome();
+  showToast(lib.hidden ? `词库「${lib.name}」已隐藏` : `词库「${lib.name}」已显示`);
+}
+function toggleShowHiddenLibs(){
+  state.showHiddenLibs = !state.showHiddenLibs;
+  renderHome();
 }
 function showToast(msg){
   const t = document.createElement('div');
@@ -597,24 +824,37 @@ function renderHome(){
   const greenCount = state.words.filter(w=>w.label==='green').length;
 
   let libHTML = '';
+  const visibleLibs = state.libraries.filter(l=>!l.hidden);
+  const hiddenLibs = state.libraries.filter(l=>l.hidden);
+  const showHidden = !!state.showHiddenLibs;
   if(state.libraries.length === 0){
     libHTML = `<div class="empty-state"><div class="emoji">📚</div><p>还没有词库<br>点击下方按钮创建一个吧！</p></div>`;
   } else {
     const sortPref = getSortPref();
-    let libs = state.libraries;
+    const base = showHidden ? state.libraries : visibleLibs;
+    let libs;
     if(sortPref.libs === 'name'){
-      libs = sortByText(libs, 'name');
+      libs = sortByText(base, 'name');
+    } else {
+      libs = base.slice();
     }
     libHTML = libs.map(lib=>{
       const wordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id)).length;
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card" onclick="navigateLibrary('${lib.id}')">
+        <div class="lib-card ${lib.hidden?'hidden-lib':''}" draggable="true"
+             ondragstart="dragLibStart(event,'${lib.id}')"
+             ondragover="dragLibOver(event)"
+             ondragleave="dragLibLeave(event)"
+             ondrop="dragLibDrop(event,'${lib.id}')"
+             ondragend="dragLibEnd(event)"
+             onclick="navigateLibrary('${lib.id}')">
           <div class="lib-icon">📁</div>
           <div class="lib-info">
             <div class="lib-name">${escapeHtml(lib.name)}</div>
-            <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词</div>
+            <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词${lib.hidden?' · 🙈 已隐藏':''}</div>
           </div>
+          <button class="btn btn-small btn-white" title="隐藏/显示词库" onclick="event.stopPropagation();toggleHideLib('${lib.id}')">${lib.hidden?'👁️':'🙈'}</button>
           <button class="btn btn-small btn-white" title="导出 Word" onclick="event.stopPropagation();exportLibWord('${lib.id}')">📤</button>
           <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameLibrary('${lib.id}')">✏️</button>
           <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteLibrary('${lib.id}')">🗑️</button>
@@ -642,6 +882,7 @@ function renderHome(){
       <button class="btn btn-green btn-large" onclick="navigateReviewSelect()">🔀 乱序复习</button>
     </div>
     <button class="btn btn-orange btn-block" style="margin-bottom:10px" onclick="navigateAllWords()">📖 全部单词 (${total})</button>
+    <button class="btn btn-purple btn-block" style="margin-bottom:20px" onclick="navigateStoryHome()">🎨 看图说话 (${state.stories.length})</button>
     <div class="btn-row" style="margin-bottom:20px">
       <button class="btn btn-blue" onclick="exportBackup()">💾 导出备份</button>
       <button class="btn btn-blue" onclick="document.getElementById('backup-file-input').click()">📂 导入备份</button>
@@ -649,7 +890,11 @@ function renderHome(){
     <div class="section-title">📁 我的词库
       <button class="sort-chip ${getSortPref().libs==='name'?'active':''}" onclick="toggleLibSort()">${getSortPref().libs==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
+    ${hiddenLibs.length>0 ? `
+      <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="toggleShowHiddenLibs()">${showHidden?'🙈 收起隐藏词库':'👁️ 显示隐藏词库 ('+hiddenLibs.length+')'}</button>
+    ` : ''}
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createLibrary()">➕ 新建词库</button>
+    ${visibleLibs.length>0 ? `<div style="font-size:14px;color:var(--text-l);margin-bottom:8px">💡 按住词库卡片上下拖动可排序，🙈 可隐藏词库</div>` : ''}
     ${libHTML}
   `;
 }
@@ -1702,16 +1947,563 @@ async function exportGroupWord(libId, groupId){
   await exportWordsToWord(words, `单词表_${lib.name}_${group.name}`);
 }
 
+/* ========== 看图说话 Story ========== */
+function getStoryLibStoryCount(libId){
+  return state.stories.filter(s=>s.placements.some(p=>p.libraryId===libId)).length;
+}
+function getStoryGroupStoryCount(libId, groupId){
+  return state.stories.filter(s=>s.placements.some(p=>p.libraryId===libId && p.groupId===groupId)).length;
+}
+async function loadStoryCovers(storyIds){
+  let allImages = [];
+  try{
+    allImages = await dbGetAllStoryImages();
+  }catch(err){}
+  const byStory = {};
+  for(const img of allImages){
+    if(!img || !img.storyId) continue;
+    if(!byStory[img.storyId]) byStory[img.storyId] = [];
+    byStory[img.storyId].push(img);
+  }
+  for(const id of storyIds){
+    const images = byStory[id] || [];
+    if(images.length > 0 && images[0].data){
+      const el = document.getElementById('story-cover-'+id);
+      if(el){
+        el.innerHTML = `<img src="${images[0].data}" alt="" onerror="this.innerHTML='🖼️'">`;
+      }
+    }
+  }
+}
+function renderStoryCard(story){
+  return `
+    <div class="story-card" onclick="navigateStoryView('${story.id}')">
+      <div class="story-cover" id="story-cover-${story.id}">🖼️</div>
+      <div class="story-info">
+        <div class="story-name">${escapeHtml(story.title)}</div>
+        <div class="story-meta">${story.pages.length} 张图片</div>
+      </div>
+      <button class="btn btn-small btn-white story-page-btn" onclick="event.stopPropagation();startStoryEditById('${story.id}')">✏️</button>
+      <button class="btn btn-small btn-red story-page-btn" onclick="event.stopPropagation();deleteStory('${story.id}')">🗑️</button>
+    </div>`;
+}
+async function renderStoryCards(containerId, stories){
+  document.getElementById(containerId).innerHTML = stories.map(renderStoryCard).join('') ||
+    `<div class="empty-state"><div class="emoji">🎨</div><p>还没有故事<br>点击下方按钮创建一个吧！</p></div>`;
+  await loadStoryCovers(stories.map(s=>s.id));
+}
+
+/* ===== 故事首页 ===== */
+function navigateStoryHome(){
+  state.currentStoryLibId = null;
+  state.currentStoryGroupId = null;
+  renderStoryHome();
+  showPage('page-story-home');
+}
+function renderStoryHome(){
+  let libHTML = '';
+  if(state.storyLibs.length === 0){
+    libHTML = `<div class="empty-state"><div class="emoji">📚</div><p>还没有故事库<br>点击下方按钮创建一个吧！</p></div>`;
+  } else {
+    libHTML = state.storyLibs.map(lib=>{
+      const count = getStoryLibStoryCount(lib.id);
+      const groupCount = lib.groups.length;
+      return `
+        <div class="lib-card" onclick="navigateStoryLib('${lib.id}')">
+          <div class="lib-icon">🗂️</div>
+          <div class="lib-info">
+            <div class="lib-name">${escapeHtml(lib.name)}</div>
+            <div class="lib-meta">${groupCount} 个分组 · ${count} 个故事</div>
+          </div>
+          <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameStoryLib('${lib.id}')">✏️</button>
+          <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteStoryLib('${lib.id}')">🗑️</button>
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('page-story-home').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateHome()">←</button>
+      <div class="back-title">🎨 看图说话</div>
+    </div>
+    <div class="app-header">
+      <p>看图片讲故事，天天练口才！</p>
+    </div>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
+    </div>
+    <button class="btn btn-orange btn-block" style="margin-bottom:16px" onclick="showAllStories()">📖 全部故事 (${state.stories.length})</button>
+    <div class="section-title">🗂️ 我的故事库</div>
+    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createStoryLib()">➕ 新建故事库</button>
+    ${libHTML}
+  `;
+}
+function showAllStories(){
+  renderStoryHome();
+  document.getElementById('page-story-home').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateStoryHome()">←</button>
+      <div class="back-title">📖 全部故事</div>
+      <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
+    </div>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
+    </div>
+    <div id="all-story-list"></div>
+  `;
+  renderStoryCards('all-story-list', state.stories.slice().reverse());
+}
+
+/* ===== 故事库页面 ===== */
+function navigateStoryLib(libId){
+  state.currentStoryLibId = libId;
+  state.currentStoryGroupId = null;
+  renderStoryLib();
+  showPage('page-story-lib');
+}
+function renderStoryLib(){
+  const lib = state.storyLibs.find(l=>l.id===state.currentStoryLibId);
+  if(!lib){ navigateStoryHome(); return; }
+  const stories = state.stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id));
+  // 按分组展示：每个分组一个小标题，未分组故事放最后
+  let bodyHTML = '';
+  for(const g of lib.groups){
+    const gStories = stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id));
+    if(gStories.length === 0) continue;
+    bodyHTML += `
+      <div class="section-title" style="margin-top:8px">📄 ${escapeHtml(g.name)} (${gStories.length})
+        <button class="btn btn-small btn-white" style="margin-left:6px" onclick="renameStoryGroup('${lib.id}','${g.id}')">✏️</button>
+        <button class="btn btn-small btn-red" style="margin-left:6px" onclick="deleteStoryGroup('${lib.id}','${g.id}')">🗑️</button>
+      </div>
+      <div id="story-group-${g.id}"></div>`;
+  }
+  const ungrouped = stories.filter(s=>!s.placements.some(p=>p.libraryId===lib.id && p.groupId));
+  if(ungrouped.length){
+    bodyHTML += `<div class="section-title" style="margin-top:8px">📄 默认分组 (${ungrouped.length})</div>
+      <div id="story-group-default"></div>`;
+  }
+  if(!bodyHTML){
+    bodyHTML = `<div class="empty-state"><div class="emoji">🎨</div><p>这个故事库还没有故事</p></div>`;
+  }
+  document.getElementById('page-story-lib').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateStoryHome()">←</button>
+      <div class="back-title">🗂️ ${escapeHtml(lib.name)}</div>
+      <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
+      <button class="btn btn-small btn-white" onclick="renameStoryLib('${lib.id}')">✏️</button>
+      <button class="btn btn-small btn-red" onclick="deleteStoryLib('${lib.id}')">🗑️</button>
+    </div>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-blue" onclick="createStoryGroup('${lib.id}')">➕ 新建分组</button>
+      <button class="btn btn-green" onclick="startStoryEdit('${lib.id}')">➕ 新建故事</button>
+    </div>
+    ${bodyHTML}
+  `;
+  // 逐个分组渲染故事卡片
+  for(const g of lib.groups){
+    const gStories = stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id));
+    if(gStories.length) renderStoryCards('story-group-'+g.id, gStories);
+  }
+  if(ungrouped.length) renderStoryCards('story-group-default', ungrouped);
+}
+
+/* ===== 故事库/分组管理 ===== */
+async function createStoryLib(){
+  const name = await showInputModal('输入故事库名称', '');
+  if(!name) return;
+  state.storyLibs.push({
+    id: genId('slib'),
+    name: name,
+    groups: [{id:genId('sgrp'), name:'默认分组'}]
+  });
+  saveStoryLibs();
+  renderStoryHome();
+  showToast('故事库已创建');
+}
+async function renameStoryLib(id){
+  const lib = state.storyLibs.find(l=>l.id===id);
+  if(!lib) return;
+  const name = await showInputModal('修改故事库名称', lib.name);
+  if(!name) return;
+  lib.name = name;
+  saveStoryLibs();
+  if(state.currentPage === 'page-story-home') renderStoryHome();
+  if(state.currentPage === 'page-story-lib') renderStoryLib();
+}
+async function deleteStoryLib(id){
+  const lib = state.storyLibs.find(l=>l.id===id);
+  if(!lib) return;
+  const ok = await showConfirm(`确定删除故事库「${lib.name}」吗？故事不会被删除，但会移出该故事库。`);
+  if(!ok) return;
+  for(const story of state.stories){
+    story.placements = story.placements.filter(p=>p.libraryId!==id);
+  }
+  saveStories();
+  state.storyLibs = state.storyLibs.filter(l=>l.id!==id);
+  saveStoryLibs();
+  renderStoryHome();
+  showToast('故事库已删除');
+}
+async function createStoryGroup(libId){
+  const name = await showInputModal('输入分组名称', '');
+  if(!name) return;
+  const lib = state.storyLibs.find(l=>l.id===libId);
+  if(!lib) return;
+  lib.groups.push({id:genId('sgrp'), name:name});
+  saveStoryLibs();
+  renderStoryLib();
+  showToast('分组已创建');
+}
+async function renameStoryGroup(libId, groupId){
+  const lib = state.storyLibs.find(l=>l.id===libId);
+  if(!lib) return;
+  const group = lib.groups.find(g=>g.id===groupId);
+  if(!group) return;
+  const name = await showInputModal('修改分组名称', group.name);
+  if(!name) return;
+  group.name = name;
+  saveStoryLibs();
+  if(state.currentPage === 'page-story-lib') renderStoryLib();
+}
+async function deleteStoryGroup(libId, groupId){
+  const lib = state.storyLibs.find(l=>l.id===libId);
+  if(!lib) return;
+  const group = lib.groups.find(g=>g.id===groupId);
+  if(!group) return;
+  const ok = await showConfirm(`确定删除分组「${group.name}」吗？故事不会被删除，但会移出该分组。`);
+  if(!ok) return;
+  for(const story of state.stories){
+    story.placements = story.placements.filter(p=>!(p.libraryId===libId && p.groupId===groupId));
+  }
+  saveStories();
+  lib.groups = lib.groups.filter(g=>g.id!==groupId);
+  saveStoryLibs();
+  renderStoryLib();
+  showToast('分组已删除');
+}
+
+/* ===== 故事编辑 ===== */
+async function startStoryEdit(preLib, preGroup){
+  if(preLib === undefined || preLib === null){
+    // 新建故事：记住返回页
+    state.storyEditReturn = {type:'home'};
+  } else {
+    state.storyEditReturn = {type:'lib', libId: preLib};
+  }
+  state.storyPlacementsCollapsed = true;
+  state.storyEditCollapsedLibs = {};
+  const story = {
+    id: genId('story'),
+    title: '',
+    placements: [],
+    pages: []
+  };
+  if(preLib){
+    story.placements = [{libraryId: preLib, groupId: preGroup || null}];
+  }
+  state.editingStory = story;
+  state.editingStoryOldPageIds = [];
+  renderStoryEdit();
+  showPage('page-story-edit');
+}
+async function startStoryEditById(storyId){
+  const story = state.stories.find(s=>s.id===storyId);
+  if(!story) return;
+  state.storyEditReturn = {type:'storyBack'};
+  state.storyPlacementsCollapsed = true;
+  state.storyEditCollapsedLibs = {};
+  const images = await dbGetStoryImages(storyId);
+  state.editingStory = {
+    id: story.id,
+    title: story.title,
+    placements: story.placements.map(p=>({...p})),
+    pages: story.pages.map((p,i)=>{
+      const img = images.find(im=>im.id===p.id);
+      return {id:p.id, prompt:p.prompt||'', data: img ? img.data : null};
+    })
+  };
+  state.editingStoryOldPageIds = story.pages.map(p=>p.id);
+  renderStoryEdit();
+  showPage('page-story-edit');
+}
+function renderStoryEdit(){
+  const es = state.editingStory;
+  if(!es){ navigateStoryHome(); return; }
+  document.getElementById('page-story-edit').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="cancelStoryEdit()">←</button>
+      <div class="back-title">${es.title ? '✏️ 编辑故事' : '🎨 新建故事'}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📝 故事标题</label>
+      <input type="text" class="form-input" id="story-title-input" value="${escapeHtml(es.title)}" placeholder="输入故事标题..." autocomplete="off">
+    </div>
+    <div class="form-group" id="story-placement-form-group"></div>
+    <div class="form-group">
+      <label class="form-label">🖼️ 故事图片与提示词（最多20张）</label>
+      <div id="story-pages-container"></div>
+      <button class="story-add-btn" onclick="triggerStoryImageUpload()">📷 添加图片</button>
+    </div>
+    <button class="btn btn-green btn-large" onclick="saveStory()">💾 保存故事</button>
+  `;
+  renderStoryEditPages();
+  renderStoryEditPlacements();
+}
+function renderStoryEditPages(){
+  const es = state.editingStory;
+  let html = '';
+  es.pages.forEach((p, i)=>{
+    html += `
+      <div class="story-page-edit">
+        <div class="story-page-num">${i+1}</div>
+        <button class="story-page-remove" onclick="removeStoryPage(${i})">✕</button>
+        <img src="${p.data}" alt="" onclick="showImageFullscreen('${p.data}')">
+        <textarea class="story-prompt-input" placeholder="📝 提示词：这张图讲了什么？可以引导孩子复述..." oninput="state.editingStory.pages[${i}].prompt=this.value">${escapeHtml(p.prompt||'')}</textarea>
+      </div>`;
+  });
+  document.getElementById('story-pages-container').innerHTML = html;
+}
+function triggerStoryImageUpload(){
+  const es = state.editingStory;
+  const remaining = 20 - es.pages.length;
+  if(remaining <= 0){ showToast('最多只能添加20张图片'); return; }
+  const input = document.getElementById('story-image-input');
+  input.value = '';
+  input.click();
+}
+document.getElementById('story-image-input').addEventListener('change', async (e)=>{
+  const es = state.editingStory;
+  if(!es) return;
+  const files = Array.from(e.target.files);
+  if(!files.length) return;
+  e.target.value = '';
+  const remaining = 20 - es.pages.length;
+  const toProcess = files.slice(0, remaining);
+  for(const file of toProcess){
+    if(!file.type.startsWith('image/')) continue;
+    try{
+      const data = await resizeImage(file, 1024, 0.8);
+      es.pages.push({id:genId('spage'), prompt:'', data:data});
+    }catch(err){
+      showToast('图片处理失败');
+    }
+  }
+  renderStoryEditPages();
+});
+function removeStoryPage(index){
+  const es = state.editingStory;
+  es.pages.splice(index, 1);
+  renderStoryEditPages();
+}
+function renderStoryEditPlacements(){
+  const es = state.editingStory;
+  const collapsed = !!state.storyPlacementsCollapsed;
+  const collapsedLibs = state.storyEditCollapsedLibs || {};
+  let html = '';
+  if(state.storyLibs.length === 0){
+    html = `<p style="color:var(--text-l);font-size:16px">还没有故事库，请先在「看图说话」首页创建故事库和分组。</p>`;
+  } else if(!collapsed){
+    html = state.storyLibs.map(lib=>{
+      const libCollapsed = !!collapsedLibs[lib.id];
+      let groupsHTML = '';
+      if(lib.groups.length === 0){
+        groupsHTML = `<div style="padding:8px 14px 8px 28px;color:var(--text-l);font-size:16px">暂无分组</div>`;
+      } else {
+        groupsHTML = lib.groups.map(g=>{
+          const checked = es.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id);
+          return `
+            <div class="placement-group ${checked?'checked':''}" onclick="toggleStoryPlacement('${lib.id}','${g.id}')">
+              <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();toggleStoryPlacement('${lib.id}','${g.id}')">
+              <span>${escapeHtml(g.name)}</span>
+            </div>`;
+        }).join('');
+      }
+      return `
+        <div class="placement-section">
+          <div class="placement-lib" onclick="toggleStoryLibCollapse('${lib.id}')">
+            🗂️ ${escapeHtml(lib.name)}
+            <span class="collapse-arrow ${libCollapsed?'':'open'}">▾</span>
+          </div>
+          <div class="placement-groups ${libCollapsed?'hidden':''}">
+            ${groupsHTML}
+          </div>
+        </div>`;
+    }).join('');
+  }
+  const container = document.getElementById('story-placement-form-group');
+  if(container){
+    container.innerHTML = `
+      <label class="form-label form-label-toggle" onclick="toggleStoryPlacementsCollapse()">
+        <span>归属故事库与分组</span>
+        <span class="collapse-arrow ${collapsed?'':'open'}">▾</span>
+      </label>
+      ${html}
+    `;
+  }
+}
+function toggleStoryPlacementsCollapse(){
+  state.storyPlacementsCollapsed = !state.storyPlacementsCollapsed;
+  renderStoryEditPlacements();
+}
+function toggleStoryLibCollapse(libId){
+  if(!state.storyEditCollapsedLibs) state.storyEditCollapsedLibs = {};
+  state.storyEditCollapsedLibs[libId] = !state.storyEditCollapsedLibs[libId];
+  renderStoryEditPlacements();
+}
+function toggleStoryPlacement(libId, groupId){
+  const es = state.editingStory;
+  const existing = es.placements.findIndex(p=>p.libraryId===libId && p.groupId===groupId);
+  if(existing >= 0){
+    es.placements.splice(existing, 1);
+  } else {
+    es.placements.push({libraryId:libId, groupId:groupId});
+  }
+  renderStoryEditPlacements();
+}
+async function saveStory(){
+  const es = state.editingStory;
+  if(!es) return;
+  const title = document.getElementById('story-title-input').value.trim();
+  if(!title){ showToast('请输入故事标题'); return; }
+  if(es.pages.length === 0){ showToast('请至少添加一张图片'); return; }
+  es.title = title;
+  // 保存页面提示词（文本域 oninput 已同步，此处兜底）
+  document.querySelectorAll('#page-story-edit .story-prompt-input').forEach((ta, i)=>{
+    if(es.pages[i]) es.pages[i].prompt = ta.value;
+  });
+  // 保存图片到 IndexedDB（异常不影响故事元数据保存）
+  try{
+    for(let i=0; i<es.pages.length; i++){
+      const p = es.pages[i];
+      if(p.data){
+        await dbSaveStoryImage({id:p.id, storyId:es.id, data:p.data, sort:i});
+      }
+    }
+    const currentIds = es.pages.map(p=>p.id);
+    for(const oldId of state.editingStoryOldPageIds){
+      if(!currentIds.includes(oldId)) await dbDeleteStoryImage(oldId);
+    }
+  }catch(err){}
+  const storyData = {
+    id: es.id,
+    title: es.title,
+    placements: es.placements,
+    pages: es.pages.map(p=>({id:p.id, prompt:p.prompt||''}))
+  };
+  const idx = state.stories.findIndex(s=>s.id===es.id);
+  if(idx >= 0){
+    state.stories[idx] = storyData;
+  } else {
+    state.stories.push(storyData);
+  }
+  saveStories();
+  state.editingStory = null;
+  state.editingStoryOldPageIds = [];
+  showToast('故事已保存！');
+  goBackFromStoryEdit();
+}
+function cancelStoryEdit(){
+  state.editingStory = null;
+  state.editingStoryOldPageIds = [];
+  goBackFromStoryEdit();
+}
+function goBackFromStoryEdit(){
+  const r = state.storyEditReturn || {type:'home'};
+  state.storyEditReturn = null;
+  if(r.type === 'lib') navigateStoryLib(r.libId);
+  else navigateStoryHome();
+}
+async function deleteStory(storyId){
+  const story = state.stories.find(s=>s.id===storyId);
+  if(!story) return;
+  const ok = await showConfirm(`确定删除故事「${story.title}」吗？`);
+  if(!ok) return;
+  state.stories = state.stories.filter(s=>s.id!==storyId);
+  saveStories();
+  for(const p of story.pages){
+    try{ await dbDeleteStoryImage(p.id); }catch(err){}
+  }
+  showToast('故事已删除');
+  refreshCurrentPage();
+}
+
+/* ===== 故事查看 ===== */
+async function navigateStoryView(storyId){
+  const story = state.stories.find(s=>s.id===storyId);
+  if(!story) return;
+  let images = [];
+  try{
+    images = await dbGetStoryImages(storyId);
+  }catch(err){}
+  state.storyViewStory = story;
+  state.storyViewImages = images;
+  state.storyViewIndex = 0;
+  renderStoryView();
+  showPage('page-story-view');
+}
+function renderStoryView(){
+  const story = state.storyViewStory;
+  if(!story || !state.storyViewImages.length){
+    document.getElementById('page-story-view').innerHTML = `
+      <div class="back-bar">
+        <button class="back-btn" onclick="navigateStoryHome()">←</button>
+        <div class="back-title">🎨 看图说话</div>
+        <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
+      </div>
+      <div class="empty-state"><div class="emoji">🖼️</div><p>这个故事没有图片</p></div>`;
+    return;
+  }
+  const index = Math.max(0, Math.min(state.storyViewIndex, state.storyViewImages.length-1));
+  state.storyViewIndex = index;
+  const page = story.pages.find(p=>p.id===state.storyViewImages[index].id) || {prompt:''};
+  document.getElementById('page-story-view').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateStoryHome()">←</button>
+      <div class="back-title">${escapeHtml(story.title)}</div>
+      <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
+      <button class="btn btn-small btn-white" onclick="event.stopPropagation();startStoryEditById('${story.id}')">✏️</button>
+    </div>
+    <div class="story-view-header">
+      <div class="sv-title">${escapeHtml(story.title)}</div>
+      <div class="story-view-progress">第 ${index+1} / ${state.storyViewImages.length} 张</div>
+    </div>
+    <img class="story-view-image" src="${state.storyViewImages[index].data}" alt="" onclick="showImageFullscreen('${state.storyViewImages[index].data}')">
+    <div class="story-view-prompt">${escapeHtml(page.prompt || '这张图讲了什么呀？')}</div>
+    <div class="story-view-nav">
+      <button class="btn btn-gray" onclick="storyViewPrev()" ${index===0?'disabled style="opacity:.5"':''}>⬅️ 上一张</button>
+      <button class="btn btn-primary" onclick="storyViewNext()" ${index>=state.storyViewImages.length-1?'disabled style="opacity:.5"':''}>下一张 ➡️</button>
+    </div>
+    <div class="story-view-start-hint" style="margin-top:14px">👦👧 看着图片，把故事讲出来吧！</div>
+  `;
+}
+function storyViewPrev(){
+  if(state.storyViewIndex > 0){
+    state.storyViewIndex--;
+    renderStoryView();
+  }
+}
+function storyViewNext(){
+  if(state.storyViewIndex < state.storyViewImages.length - 1){
+    state.storyViewIndex++;
+    renderStoryView();
+  } else {
+    showToast('🎉 故事讲完啦！你真棒！');
+  }
+}
+
 /* ========== Backup ========== */
 async function exportBackup(){
   showToast('正在准备备份...');
   const images = await dbGetAllImages();
+  const storyImages = await dbGetAllStoryImages();
   const backup = {
     version: 1,
     exportDate: new Date().toISOString(),
     libraries: state.libraries,
     words: state.words,
-    images: images
+    images: images,
+    storyLibs: state.storyLibs,
+    stories: state.stories,
+    storyImages: storyImages
   };
   const json = JSON.stringify(backup);
   const blob = new Blob([json], {type:'application/json'});
@@ -1742,13 +2534,23 @@ document.getElementById('backup-file-input').addEventListener('change', async (e
     // Restore data
     state.libraries = backup.libraries;
     state.words = backup.words;
+    state.storyLibs = backup.storyLibs || [];
+    state.stories = backup.stories || [];
     saveLibraries();
     saveWords();
+    saveStoryLibs();
+    saveStories();
     // Restore images
     await dbClearAllImages();
     if(backup.images && backup.images.length){
       for(const img of backup.images){
         await dbSaveImage(img);
+      }
+    }
+    await dbClearAllStoryImages();
+    if(backup.storyImages && backup.storyImages.length){
+      for(const img of backup.storyImages){
+        await dbSaveStoryImage(img);
       }
     }
     showToast('备份导入成功！');
@@ -1771,6 +2573,8 @@ function refreshCurrentPage(){
   else if(state.currentPage === 'page-group') renderGroup();
   else if(state.currentPage === 'page-all-words') renderAllWords();
   else if(state.currentPage === 'page-add-to-lib') renderAddToLib();
+  else if(state.currentPage === 'page-story-home') renderStoryHome();
+  else if(state.currentPage === 'page-story-lib') renderStoryLib();
   else navigateHome();
 }
 
@@ -1778,6 +2582,8 @@ function refreshCurrentPage(){
 function init(){
   state.libraries = loadLibraries();
   state.words = loadWords();
+  state.storyLibs = loadStoryLibs();
+  state.stories = loadStories();
   renderHome();
   showPage('page-home');
 }
