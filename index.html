@@ -394,6 +394,7 @@ textarea.form-input{resize:vertical;min-height:60px}
   <div id="page-review" class="page hidden"></div>
   <div id="page-story-home" class="page hidden"></div>
   <div id="page-story-lib" class="page hidden"></div>
+  <div id="page-story-group" class="page hidden"></div>
   <div id="page-story-edit" class="page hidden"></div>
   <div id="page-story-view" class="page hidden"></div>
 </div>
@@ -467,6 +468,8 @@ const state = {
   storyViewStory: null,
   storyViewImages: [],
   storyViewIndex: 0,
+  storyViewFrom: null, // 进入故事查看页时的来源页（返回用）
+  storyHomeMode: 'lib', // story-home 当前模式：'lib' 库列表 / 'all' 全部故事
 };
 
 /* ========== localStorage ========== */
@@ -874,10 +877,6 @@ function renderHome(){
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词${lib.hidden?' · 🙈 已隐藏':''}</div>
           </div>
-          <button class="btn btn-small btn-white" title="隐藏/显示词库" onclick="event.stopPropagation();toggleHideLib('${lib.id}')">${lib.hidden?'👁️':'🙈'}</button>
-          <button class="btn btn-small btn-white" title="导出 Word" onclick="event.stopPropagation();exportLibWord('${lib.id}')">📤</button>
-          <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameLibrary('${lib.id}')">✏️</button>
-          <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteLibrary('${lib.id}')">🗑️</button>
         </div>
       `;
     }).join('');
@@ -914,7 +913,7 @@ function renderHome(){
       <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="toggleShowHiddenLibs()">${showHidden?'🙈 收起隐藏词库':'👁️ 显示隐藏词库 ('+hiddenLibs.length+')'}</button>
     ` : ''}
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createLibrary()">➕ 新建词库</button>
-    ${visibleLibs.length>0 ? `<div style="font-size:14px;color:var(--text-l);margin-bottom:8px">💡 按住词库卡片上下拖动可排序，🙈 可隐藏词库</div>` : ''}
+    ${visibleLibs.length>0 ? `<div style="font-size:14px;color:var(--text-l);margin-bottom:8px">💡 按住词库卡片上下拖动可排序，进入词库后顶部可编辑/导出/隐藏/删除</div>` : ''}
     ${libHTML}
   `;
 }
@@ -948,9 +947,6 @@ function renderLibrary(){
             <div class="group-name">${escapeHtml(g.name)}</div>
             <div class="group-meta">${wordCount} 个单词</div>
           </div>
-          <button class="btn btn-small btn-white" title="导出 Word" onclick="event.stopPropagation();exportGroupWord('${lib.id}','${g.id}')">📤</button>
-          <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameGroup('${lib.id}','${g.id}')">✏️</button>
-          <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteGroup('${lib.id}','${g.id}')">🗑️</button>
         </div>
       `;
     }).join('');
@@ -965,6 +961,10 @@ function renderLibrary(){
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">📁 ${escapeHtml(lib.name)}</div>
+      <button class="btn btn-small btn-white" title="隐藏/显示词库" onclick="toggleHideLib('${lib.id}')">${lib.hidden?'👁️':'🙈'}</button>
+      <button class="btn btn-small btn-white" title="导出 Word" onclick="exportLibWord('${lib.id}')">📤</button>
+      <button class="btn btn-small btn-white" title="重命名" onclick="renameLibrary('${lib.id}')">✏️</button>
+      <button class="btn btn-small btn-red" title="删除词库" onclick="deleteLibrary('${lib.id}')">🗑️</button>
     </div>
     <div class="section-title">📂 分组
       <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
@@ -975,8 +975,7 @@ function renderLibrary(){
       <button class="sort-chip ${sortPref.words && sortPref.words[lib.id]==='name'?'active':''}" onclick="toggleLibWordSort('${lib.id}')">${sortPref.words && sortPref.words[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
     <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord('${lib.id}')">➕ 添加单词到此词库</button>
-    <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="navigateAddToLib('${lib.id}')">📥 从已有单词添加</button>
-    <button class="btn btn-orange btn-block" style="margin-bottom:16px" onclick="exportLibWord('${lib.id}')">📤 导出整个词库为 Word</button>
+    <button class="btn btn-blue btn-block" style="margin-bottom:16px" onclick="navigateAddToLib('${lib.id}')">📥 从已有单词添加</button>
     <div id="lib-words-list"></div>
   `;
   renderWordList('lib-words-list', libWords);
@@ -1007,6 +1006,9 @@ function renderGroup(){
     <div class="back-bar">
       <button class="back-btn" onclick="navigateLibrary('${lib.id}')">←</button>
       <div class="back-title">📄 ${escapeHtml(group.name)}</div>
+      <button class="btn btn-small btn-white" title="导出 Word" onclick="exportGroupWord('${lib.id}','${group.id}')">📤</button>
+      <button class="btn btn-small btn-white" title="重命名" onclick="renameGroup('${lib.id}','${group.id}')">✏️</button>
+      <button class="btn btn-small btn-red" title="删除分组" onclick="deleteGroup('${lib.id}','${group.id}')">🗑️</button>
     </div>
     <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord('${lib.id}','${group.id}')">➕ 添加单词</button>
     <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center">
@@ -1046,10 +1048,6 @@ function renderWordList(containerId, words){
           <div class="word-chinese">${escapeHtml(w.chinese)}</div>
         </div>
         <div class="label-dot ${w.label}" onclick="cycleLabel('${w.id}',this)">${labelEmoji[w.label]}</div>
-      </div>
-      <div class="word-card-actions">
-        <button class="btn btn-small btn-blue" onclick="editWord('${w.id}')">✏️ 编辑</button>
-        <button class="btn btn-small btn-red" onclick="deleteWord('${w.id}')">🗑️ 删除</button>
       </div>
     </div>
   `).join('');
@@ -1185,6 +1183,7 @@ function renderWordEdit(){
     <div class="back-bar">
       <button class="back-btn" onclick="cancelEditWord()">←</button>
       <div class="back-title">📝 ${state.words.find(w=>w.id===ew.id) ? '编辑单词' : '添加单词'}</div>
+      ${state.words.find(w=>w.id===ew.id) ? `<button class="btn btn-small btn-red" title="删除该单词" onclick="deleteEditingWord()">🗑️ 删除</button>` : ''}
     </div>
     <div class="card">
       <div class="form-group">
@@ -1400,6 +1399,20 @@ function resizeImage(file, maxWidth, quality){
 }
 function cancelEditWord(){
   state.editingWord = null;
+  goBackFromEdit();
+}
+async function deleteEditingWord(){
+  const ew = state.editingWord;
+  if(!ew) return;
+  const word = state.words.find(w=>w.id===ew.id);
+  if(!word){ showToast('新单词保存后才能删除'); return; }
+  const ok = await showConfirm(`确定删除单词「${word.english}」吗？`);
+  if(!ok) return;
+  await dbDeleteImagesByWord(ew.id);
+  state.words = state.words.filter(w=>w.id!==ew.id);
+  saveWords();
+  state.editingWord = null;
+  showToast('单词已删除');
   goBackFromEdit();
 }
 function recordEditReturn(){
@@ -1709,6 +1722,8 @@ function navigateReviewSelect(){
   showPage('page-review-select');
 }
 function renderReviewSelect(){
+  const exclude = !!state.reviewExcludeGreen;
+  const cnt = arr => (exclude ? arr.filter(w=>w.label!=='green') : arr).length;
   let optionsHTML = '';
   // All words option
   optionsHTML = `
@@ -1716,7 +1731,7 @@ function renderReviewSelect(){
       <div class="group-icon">🌐</div>
       <div class="group-info">
         <div class="group-name">全部单词</div>
-        <div class="group-meta">${state.words.length} 个单词</div>
+        <div class="group-meta">${cnt(state.words)} 个单词${exclude?'（排除已会）':''}</div>
       </div>
     </div>`;
 
@@ -1724,25 +1739,25 @@ function renderReviewSelect(){
   const collapsedLibs = state.reviewCollapsedLibs || {};
   for(const lib of state.libraries){
     const libCollapsed = !!collapsedLibs[lib.id];
-    const libWordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id)).length;
+    const libWords = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id));
     optionsHTML += `
       <div class="lib-card" style="cursor:pointer" onclick="startReviewLibrary('${lib.id}')">
         <div class="lib-icon">📁</div>
         <div class="lib-info">
           <div class="lib-name">${escapeHtml(lib.name)}</div>
-          <div class="lib-meta">全部 ${libWordCount} 词</div>
+          <div class="group-meta">${cnt(libWords)} 个单词${exclude?'（排除已会）':''}</div>
         </div>
         <span class="review-lib-arrow ${libCollapsed?'':'open'}" onclick="event.stopPropagation();toggleReviewLibCollapse('${lib.id}')">▾</span>
       </div>`;
     if(!libCollapsed){
       for(const g of lib.groups){
-        const gWordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id)).length;
+        const gWords = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id));
         optionsHTML += `
           <div class="group-card" style="margin-left:20px" onclick="startReviewGroup('${lib.id}','${g.id}')">
             <div class="group-icon">📄</div>
             <div class="group-info">
               <div class="group-name">${escapeHtml(g.name)}</div>
-              <div class="group-meta">${gWordCount} 个单词</div>
+              <div class="group-meta">${cnt(gWords)} 个单词${exclude?'（排除已会）':''}</div>
             </div>
           </div>`;
       }
@@ -1753,6 +1768,10 @@ function renderReviewSelect(){
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">🔀 选择复习范围</div>
+      <div class="review-toggle ${exclude?'on':''}" onclick="toggleReviewExcludeGreen()" style="margin-bottom:0;padding:8px 12px;flex-shrink:0">
+        <div class="rt-box"><div class="rt-knob"></div></div>
+        <span style="font-size:13px;white-space:nowrap">🙈 排除已会</span>
+      </div>
     </div>
     ${optionsHTML}
   `;
@@ -2195,9 +2214,6 @@ function renderStoryCard(story){
         <div class="story-name">${escapeHtml(story.title)}</div>
         <div class="story-meta">${story.pages.length} 张图片</div>
       </div>
-      <button class="btn btn-small btn-white story-page-btn" title="导出 Word" onclick="event.stopPropagation();exportStoryWord('${story.id}')">📤</button>
-      <button class="btn btn-small btn-white story-page-btn" onclick="event.stopPropagation();startStoryEditById('${story.id}')">✏️</button>
-      <button class="btn btn-small btn-red story-page-btn" onclick="event.stopPropagation();deleteStory('${story.id}')">🗑️</button>
     </div>`;
 }
 async function renderStoryCards(containerId, stories){
@@ -2210,6 +2226,7 @@ async function renderStoryCards(containerId, stories){
 function navigateStoryHome(){
   state.currentStoryLibId = null;
   state.currentStoryGroupId = null;
+  state.storyHomeMode = 'lib';
   renderStoryHome();
   showPage('page-story-home');
 }
@@ -2228,8 +2245,6 @@ function renderStoryHome(){
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${count} 个故事</div>
           </div>
-          <button class="btn btn-small btn-white" onclick="event.stopPropagation();renameStoryLib('${lib.id}')">✏️</button>
-          <button class="btn btn-small btn-red" onclick="event.stopPropagation();deleteStoryLib('${lib.id}')">🗑️</button>
         </div>`;
     }).join('');
   }
@@ -2252,6 +2267,7 @@ function renderStoryHome(){
 }
 function showAllStories(){
   renderStoryHome();
+  state.storyHomeMode = 'all';
   document.getElementById('page-story-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryHome()">←</button>
@@ -2266,7 +2282,7 @@ function showAllStories(){
   renderStoryCards('all-story-list', state.stories.slice().reverse());
 }
 
-/* ===== 故事库页面 ===== */
+/* ===== 故事库页面（分组列表，与词库分组一致） ===== */
 function navigateStoryLib(libId){
   state.currentStoryLibId = libId;
   state.currentStoryGroupId = null;
@@ -2276,47 +2292,85 @@ function navigateStoryLib(libId){
 function renderStoryLib(){
   const lib = state.storyLibs.find(l=>l.id===state.currentStoryLibId);
   if(!lib){ navigateStoryHome(); return; }
-  const stories = state.stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id));
-  // 按分组展示：每个分组一个小标题，未分组故事放最后
-  let bodyHTML = '';
-  for(const g of lib.groups){
-    const gStories = stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id));
-    if(gStories.length === 0) continue;
-    bodyHTML += `
-      <div class="section-title" style="margin-top:8px">📄 ${escapeHtml(g.name)} (${gStories.length})
-        <button class="btn btn-small btn-white" style="margin-left:6px" onclick="renameStoryGroup('${lib.id}','${g.id}')">✏️</button>
-        <button class="btn btn-small btn-red" style="margin-left:6px" onclick="deleteStoryGroup('${lib.id}','${g.id}')">🗑️</button>
-      </div>
-      <div id="story-group-${g.id}"></div>`;
-  }
-  const ungrouped = stories.filter(s=>!s.placements.some(p=>p.libraryId===lib.id && p.groupId));
-  if(ungrouped.length){
-    bodyHTML += `<div class="section-title" style="margin-top:8px">📄 默认分组 (${ungrouped.length})</div>
-      <div id="story-group-default"></div>`;
-  }
-  if(!bodyHTML){
-    bodyHTML = `<div class="empty-state"><div class="emoji">🎨</div><p>这个故事库还没有故事</p></div>`;
+  const libStoryCount = getStoryLibStoryCount(lib.id);
+  const ungrouped = state.stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id) && !s.placements.some(p=>p.libraryId===lib.id && p.groupId));
+  let groupsHTML = '';
+  if(lib.groups.length === 0 && ungrouped.length === 0){
+    groupsHTML = `<div class="empty-state"><div class="emoji">📂</div><p>还没有分组</p></div>`;
+  } else {
+    groupsHTML = lib.groups.map(g=>{
+      const count = getStoryGroupStoryCount(lib.id, g.id);
+      return `
+        <div class="group-card" onclick="navigateStoryGroup('${lib.id}','${g.id}')">
+          <div class="group-icon">📄</div>
+          <div class="group-info">
+            <div class="group-name">${escapeHtml(g.name)}</div>
+            <div class="group-meta">${count} 个故事</div>
+          </div>
+        </div>`;
+    }).join('');
+    if(ungrouped.length){
+      groupsHTML += `
+        <div class="group-card" onclick="navigateStoryGroup('${lib.id}','default')">
+          <div class="group-icon">📄</div>
+          <div class="group-info">
+            <div class="group-name">默认分组</div>
+            <div class="group-meta">${ungrouped.length} 个故事</div>
+          </div>
+        </div>`;
+    }
   }
   document.getElementById('page-story-lib').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryHome()">←</button>
       <div class="back-title">🗂️ ${escapeHtml(lib.name)}</div>
-      <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
-      <button class="btn btn-small btn-white" onclick="renameStoryLib('${lib.id}')">✏️</button>
-      <button class="btn btn-small btn-red" onclick="deleteStoryLib('${lib.id}')">🗑️</button>
+      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
+      <button class="btn btn-small btn-white" title="重命名" onclick="renameStoryLib('${lib.id}')">✏️</button>
+      <button class="btn btn-small btn-red" title="删除故事库" onclick="deleteStoryLib('${lib.id}')">🗑️</button>
     </div>
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-blue" onclick="createStoryGroup('${lib.id}')">➕ 新建分组</button>
       <button class="btn btn-green" onclick="startStoryEdit('${lib.id}')">➕ 新建故事</button>
     </div>
-    ${bodyHTML}
+    <div class="section-title">📂 分组（共 ${libStoryCount} 个故事）</div>
+    ${groupsHTML}
   `;
-  // 逐个分组渲染故事卡片
-  for(const g of lib.groups){
-    const gStories = stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id));
-    if(gStories.length) renderStoryCards('story-group-'+g.id, gStories);
+}
+
+/* ===== 故事分组页面（故事列表） ===== */
+function navigateStoryGroup(libId, groupId){
+  state.currentStoryLibId = libId;
+  state.currentStoryGroupId = groupId;
+  renderStoryGroup();
+  showPage('page-story-group');
+}
+function renderStoryGroup(){
+  const lib = state.storyLibs.find(l=>l.id===state.currentStoryLibId);
+  if(!lib){ navigateStoryHome(); return; }
+  const isDefault = state.currentStoryGroupId === 'default';
+  const group = isDefault ? null : lib.groups.find(g=>g.id===state.currentStoryGroupId);
+  if(!isDefault && !group){ navigateStoryLib(lib.id); return; }
+  let stories;
+  let title;
+  if(isDefault){
+    stories = state.stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id) && !s.placements.some(p=>p.libraryId===lib.id && p.groupId));
+    title = '默认分组';
+  } else {
+    stories = state.stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id && p.groupId===group.id));
+    title = group.name;
   }
-  if(ungrouped.length) renderStoryCards('story-group-default', ungrouped);
+  document.getElementById('page-story-group').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateStoryLib('${lib.id}')">←</button>
+      <div class="back-title">📄 ${escapeHtml(title)}</div>
+      ${!isDefault ? `
+      <button class="btn btn-small btn-white" title="重命名" onclick="renameStoryGroup('${lib.id}','${group.id}')">✏️</button>
+      <button class="btn btn-small btn-red" title="删除分组" onclick="deleteStoryGroup('${lib.id}','${group.id}')">🗑️</button>` : ''}
+    </div>
+    <button class="btn btn-green btn-block" style="margin-bottom:16px" onclick="startStoryEdit('${lib.id}','${isDefault ? 'default' : group.id}')">➕ 新建故事到此分组</button>
+    <div id="story-group-list"></div>
+  `;
+  renderStoryCards('story-group-list', stories.slice().reverse());
 }
 
 /* ===== 故事库/分组管理 ===== */
@@ -2376,6 +2430,7 @@ async function renameStoryGroup(libId, groupId){
   group.name = name;
   saveStoryLibs();
   if(state.currentPage === 'page-story-lib') renderStoryLib();
+  if(state.currentPage === 'page-story-group') renderStoryGroup();
 }
 async function deleteStoryGroup(libId, groupId){
   const lib = state.storyLibs.find(l=>l.id===libId);
@@ -2390,8 +2445,9 @@ async function deleteStoryGroup(libId, groupId){
   saveStories();
   lib.groups = lib.groups.filter(g=>g.id!==groupId);
   saveStoryLibs();
-  renderStoryLib();
   showToast('分组已删除');
+  if(state.currentPage === 'page-story-group') navigateStoryLib(libId);
+  else renderStoryLib();
 }
 
 /* ===== 故事编辑 ===== */
@@ -2399,6 +2455,8 @@ async function startStoryEdit(preLib, preGroup){
   if(preLib === undefined || preLib === null){
     // 新建故事：记住返回页
     state.storyEditReturn = {type:'home'};
+  } else if(preGroup){
+    state.storyEditReturn = {type:'group', libId: preLib, groupId: preGroup};
   } else {
     state.storyEditReturn = {type:'lib', libId: preLib};
   }
@@ -2411,7 +2469,7 @@ async function startStoryEdit(preLib, preGroup){
     pages: []
   };
   if(preLib){
-    story.placements = [{libraryId: preLib, groupId: preGroup || null}];
+    story.placements = [{libraryId: preLib, groupId: (preGroup && preGroup!=='default') ? preGroup : null}];
   }
   state.editingStory = story;
   state.editingStoryOldPageIds = [];
@@ -2649,7 +2707,8 @@ function cancelStoryEdit(){
 function goBackFromStoryEdit(){
   const r = state.storyEditReturn || {type:'home'};
   state.storyEditReturn = null;
-  if(r.type === 'lib') navigateStoryLib(r.libId);
+  if(r.type === 'group') navigateStoryGroup(r.libId, r.groupId);
+  else if(r.type === 'lib') navigateStoryLib(r.libId);
   else navigateStoryHome();
 }
 async function deleteStory(storyId){
@@ -2663,7 +2722,11 @@ async function deleteStory(storyId){
     try{ await dbDeleteStoryImage(p.id); }catch(err){}
   }
   showToast('故事已删除');
-  refreshCurrentPage();
+  if(state.currentPage === 'page-story-view'){
+    storyBack();
+  } else {
+    refreshCurrentPage();
+  }
 }
 
 /* ===== 故事查看 ===== */
@@ -2677,16 +2740,29 @@ async function navigateStoryView(storyId){
   state.storyViewStory = story;
   state.storyViewImages = images;
   state.storyViewIndex = 0;
+  state.storyViewFrom = state.currentPage;
   renderStoryView();
   showPage('page-story-view');
+}
+function storyBack(){
+  const from = state.storyViewFrom;
+  state.storyViewFrom = null;
+  if(from === 'page-story-group' && state.currentStoryLibId && state.currentStoryGroupId){
+    navigateStoryGroup(state.currentStoryLibId, state.currentStoryGroupId);
+  } else if(from === 'page-story-lib' && state.currentStoryLibId){
+    navigateStoryLib(state.currentStoryLibId);
+  } else if(from === 'page-story-home' && state.storyHomeMode === 'all'){
+    showAllStories();
+  } else {
+    navigateStoryHome();
+  }
 }
 function renderStoryView(){
   const story = state.storyViewStory;
   if(!story || !state.storyViewImages.length){
     document.getElementById('page-story-view').innerHTML = `
       <div class="back-bar">
-        <button class="back-btn" onclick="navigateStoryHome()">←</button>
-        <div class="back-title">🎨 看图说话</div>
+        <button class="back-btn" onclick="storyBack()">←</button>
         <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
       </div>
       <div class="empty-state"><div class="emoji">🖼️</div><p>这个故事没有图片</p></div>`;
@@ -2697,11 +2773,11 @@ function renderStoryView(){
   const page = story.pages.find(p=>p.id===state.storyViewImages[index].id) || {prompt:''};
   document.getElementById('page-story-view').innerHTML = `
     <div class="back-bar">
-      <button class="back-btn" onclick="navigateStoryHome()">←</button>
-      <div class="back-title">${escapeHtml(story.title)}</div>
-      <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
-      <button class="btn btn-small btn-white" title="导出 Word" onclick="event.stopPropagation();exportStoryWord('${story.id}')">📤</button>
-      <button class="btn btn-small btn-white" onclick="event.stopPropagation();startStoryEditById('${story.id}')">✏️</button>
+      <button class="back-btn" onclick="storyBack()">←</button>
+      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
+      <button class="btn btn-small btn-white" title="导出 Word" onclick="exportStoryWord('${story.id}')">📤</button>
+      <button class="btn btn-small btn-white" title="编辑故事" onclick="startStoryEditById('${story.id}')">✏️</button>
+      <button class="btn btn-small btn-red" title="删除故事" onclick="deleteStory('${story.id}')">🗑️</button>
     </div>
     <div class="story-view-header">
       <div class="sv-title">${escapeHtml(story.title)}</div>
@@ -2814,8 +2890,10 @@ function refreshCurrentPage(){
   else if(state.currentPage === 'page-group') renderGroup();
   else if(state.currentPage === 'page-all-words') renderAllWords();
   else if(state.currentPage === 'page-add-to-lib') renderAddToLib();
+  else if(state.currentPage === 'page-review-select') renderReviewSelect();
   else if(state.currentPage === 'page-story-home') renderStoryHome();
   else if(state.currentPage === 'page-story-lib') renderStoryLib();
+  else if(state.currentPage === 'page-story-group') renderStoryGroup();
   else navigateHome();
 }
 
