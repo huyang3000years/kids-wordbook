@@ -1004,11 +1004,11 @@ function renderGroup(){
   document.getElementById('page-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateLibrary('${lib.id}')">←</button>
-      <div class="back-title">📄 ${escapeHtml(group.name)}</div>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportGroupWord('${lib.id}','${group.id}')">📤</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteGroup('${lib.id}','${group.id}')">🗑️</button>
     </div>
+    <div class="section-title">📄 ${escapeHtml(group.name)}（${words.length} 个单词）</div>
     <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord('${lib.id}','${group.id}')">➕ 添加单词</button>
     <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center">
       <button class="btn btn-green" style="flex:1" onclick="startReviewGroup('${lib.id}','${group.id}')">🔀 本组乱序复习 (${reviewCount})</button>
@@ -2360,11 +2360,11 @@ function renderStoryGroup(){
   document.getElementById('page-story-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryLib('${lib.id}')">←</button>
-      <div class="back-title">📄 ${escapeHtml(title)}</div>
       ${!isDefault ? `
       <button class="btn btn-small btn-white" title="重命名" onclick="renameStoryGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteStoryGroup('${lib.id}','${group.id}')">🗑️</button>` : ''}
     </div>
+    <div class="section-title">📄 ${escapeHtml(title)}（${stories.length} 个故事）</div>
     <button class="btn btn-green btn-block" style="margin-bottom:16px" onclick="startStoryEdit('${lib.id}','${isDefault ? 'default' : group.id}')">➕ 新建故事到此分组</button>
     <div id="story-group-list"></div>
   `;
