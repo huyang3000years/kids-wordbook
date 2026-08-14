@@ -353,6 +353,9 @@ textarea.form-input{resize:vertical;min-height:60px}
   min-height:60px;
 }
 .story-prompt-input:focus{outline:none;border-color:var(--primary)}
+.story-replace-hint{
+  text-align:center;font-size:14px;color:var(--text-l);margin:-4px 0 8px;
+}
 .story-add-btn{
   width:100%;padding:20px;font-size:22px;border:3px dashed var(--primary-l);
   border-radius:var(--radius);background:#F8F7FF;color:var(--primary);
@@ -456,6 +459,7 @@ const state = {
   currentStoryLibId: null,
   currentStoryGroupId: null,
   editingStory: null,
+  storyReplaceIndex: null, // 替换图片模式下待替换的页索引（null 表示新增模式）
   editingStoryNewPages: [],  // 新上传待保存的页面图片 {pageId, data}
   editingStoryOldPageIds: [], // 编辑前已有的页面 id（用于删除时清理图片）
   storyPlacementsCollapsed: true, // 归属故事库与分组默认折叠
@@ -1907,59 +1911,213 @@ function renderReviewComplete(){
 function sanitizeFilename(name){
   return String(name||'').replace(/[\\/:*?"<>|]/g,'_');
 }
+/* ========== docx 导出工具（Word 的 .doc HTML 不支持 base64 图片，必须生成真正内嵌图片的 .docx） ========== */
+const EMU_PER_PX = 9525;
+const _crcTable = (()=>{
+  const t = new Uint32Array(256);
+  for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c; }
+  return t;
+})();
+function crc32(buf){
+  let c = 0xFFFFFFFF;
+  for(let i=0;i<buf.length;i++) c = _crcTable[(c^buf[i])&0xFF] ^ (c>>>8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function buildZip(files){
+  const enc = new TextEncoder();
+  const d = new Date();
+  const dosTime = ((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF;
+  const dosDate = (((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  const parts = [], central = [];
+  let offset = 0;
+  for(const f of files){
+    const nameBytes = enc.encode(f.name);
+    const data = f.data;
+    const crc = crc32(data);
+    const local = new Uint8Array(30 + nameBytes.length);
+    const dv = new DataView(local.buffer);
+    dv.setUint32(0, 0x04034b50, true);
+    dv.setUint16(4, 20, true);
+    dv.setUint16(6, 0x0800, true);
+    dv.setUint16(8, 0, true);
+    dv.setUint16(10, dosTime, true);
+    dv.setUint16(12, dosDate, true);
+    dv.setUint32(14, crc, true);
+    dv.setUint32(18, data.length, true);
+    dv.setUint32(22, data.length, true);
+    dv.setUint16(26, nameBytes.length, true);
+    dv.setUint16(28, 0, true);
+    local.set(nameBytes, 30);
+    parts.push(local, data);
+    const cen = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(cen.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, data.length, true);
+    cv.setUint32(24, data.length, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint32(42, offset, true);
+    cen.set(nameBytes, 46);
+    central.push(cen);
+    offset += local.length + data.length;
+  }
+  const centralSize = central.reduce((s,c)=>s+c.length, 0);
+  const end = new Uint8Array(22);
+  const ev = new DataView(end.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+function dataUrlToBytes(dataUrl){
+  const bin = atob((String(dataUrl).split(',')[1]) || '');
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+function loadImageSize(dataUrl){
+  return new Promise(res=>{
+    const im = new Image();
+    im.onload = ()=>res({w: im.naturalWidth, h: im.naturalHeight});
+    im.onerror = ()=>res({w: 0, h: 0});
+    im.src = dataUrl;
+  });
+}
+async function ensureDocxImage(dataUrl){
+  const mime = (String(dataUrl).match(/^data:(image\/[a-z+]+);/i)||[])[1];
+  if(mime === 'image/jpeg') return {bytes: dataUrlToBytes(dataUrl), ext: 'jpeg'};
+  if(mime === 'image/png') return {bytes: dataUrlToBytes(dataUrl), ext: 'png'};
+  const pngUrl = await new Promise(res=>{
+    const im = new Image();
+    im.onload = ()=>{
+      const c = document.createElement('canvas');
+      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      c.getContext('2d').drawImage(im, 0, 0);
+      res(c.toDataURL('image/png'));
+    };
+    im.onerror = ()=>res(null);
+    im.src = dataUrl;
+  });
+  if(!pngUrl) return {bytes: dataUrlToBytes(dataUrl), ext: 'png'};
+  return {bytes: dataUrlToBytes(pngUrl), ext: 'png'};
+}
+function xmlEsc(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function dxRun(text, o){
+  o = o || {};
+  let rPr = '';
+  if(o.bold || o.color || o.size){
+    rPr = '<w:rPr>' + (o.bold?'<w:b/>':'') + (o.color?`<w:color w:val="${o.color}"/>`:'') + (o.size?`<w:sz w:val="${o.size}"/>`:'') + '</w:rPr>';
+  }
+  return `<w:r>${rPr}<w:t xml:space="preserve">${xmlEsc(text)}</w:t></w:r>`;
+}
+function dxPara(runsXml, o){
+  o = o || {};
+  let pPr = '';
+  if(o.align || o.pageBreakBefore) pPr = '<w:pPr>' + (o.pageBreakBefore?'<w:pageBreakBefore/>':'') + (o.align?`<w:jc w:val="${o.align}"/>`:'') + '</w:pPr>';
+  return `<w:p>${pPr}${runsXml || ''}</w:p>`;
+}
+function dxPageBreak(){
+  return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+}
+function dxImageRun(rid, cx, cy, id){
+  return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${id}" name="Picture ${id}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${id}" name="image${id}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+}
+function dxCell(parasXml, o){
+  o = o || {};
+  const tcPr = '<w:tcPr>' + (o.shd?`<w:shd w:val="clear" w:color="auto" w:fill="${o.shd}"/>`:'') + '<w:vAlign w:val="center"/></w:tcPr>';
+  return `<w:tc>${tcPr}${parasXml}</w:tc>`;
+}
+function dxTable(rowsXml){
+  const borders = ['top','left','bottom','right','insideH','insideV'].map(s=>`<w:${s} w:val="single" w:sz="4" w:color="BBBBBB"/>`).join('');
+  return `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>${borders}</w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="2200"/><w:gridCol w:w="2400"/><w:gridCol w:w="2800"/><w:gridCol w:w="1500"/></w:tblGrid>${rowsXml}</w:tbl>`;
+}
+function createDocxBuilder(){
+  const imgs = [];
+  async function addImage(dataUrl, maxWpx, maxHpx){
+    const size = await loadImageSize(dataUrl);
+    let cx = (size.w || 100) * EMU_PER_PX;
+    let cy = (size.h || 100) * EMU_PER_PX;
+    const maxW = (maxWpx || 0) * EMU_PER_PX, maxH = (maxHpx || 0) * EMU_PER_PX;
+    if(maxW && cx > maxW){ cy = Math.round(cy * maxW / cx); cx = maxW; }
+    if(maxH && cy > maxH){ cx = Math.round(cx * maxH / cy); cy = maxH; }
+    imgs.push(dataUrl);
+    const n = imgs.length;
+    return dxImageRun('rIdImg' + n, cx, cy, n);
+  }
+  async function build(bodyXml){
+    const enc = new TextEncoder();
+    const media = [], rels = [];
+    for(let i=0;i<imgs.length;i++){
+      const conv = await ensureDocxImage(imgs[i]);
+      media.push({name: `word/media/image${i+1}.${conv.ext}`, data: conv.bytes});
+      rels.push(`<Relationship Id="rIdImg${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image${i+1}.${conv.ext}"/>`);
+    }
+    const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${bodyXml}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>`;
+    const ctXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+    const relsRootXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdDoc" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+    const relsDocXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`;
+    return buildZip([
+      {name: '[Content_Types].xml', data: enc.encode(ctXml)},
+      {name: '_rels/.rels', data: enc.encode(relsRootXml)},
+      {name: 'word/document.xml', data: enc.encode(docXml)},
+      {name: 'word/_rels/document.xml.rels', data: enc.encode(relsDocXml)},
+      ...media
+    ]);
+  }
+  return {addImage, build};
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
 async function exportWordsToWord(words, title){
   if(!words.length){ showToast('没有单词可导出'); return; }
   showToast('正在生成 Word...');
   const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
   const labelText = {red:'不会',yellow:'想一想',green:'会'};
-  let rowsHTML = '';
+  const B = createDocxBuilder();
+  const header = ['单词','备注','图片','标签'].map(t=>
+    dxCell(dxPara(dxRun(t,{bold:true,size:15,color:'FFFFFF'}),{align:'center'}),{shd:'6C5CE7'})
+  ).join('');
+  let rowsXml = `<w:tr>${header}</w:tr>`;
   for(const w of words){
     const images = await dbGetImagesByWord(w.id);
-    let imgCell = '';
+    let imgPara;
     if(images.length > 0){
-      imgCell = images.map(img=>
-        `<img src="${img.data}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;margin:2px" alt="">`
-      ).join('');
+      const runs = [];
+      for(const im of images) runs.push(await B.addImage(im.data, 80, 80));
+      imgPara = dxPara(runs.join(''));
+    }else{
+      imgPara = dxPara('');
     }
-    rowsHTML += `
-      <tr>
-        <td style="border:1px solid #bbb;padding:8px;font-size:14px;vertical-align:middle">${escapeHtml(w.english)}</td>
-        <td style="border:1px solid #bbb;padding:8px;font-size:14px;vertical-align:middle">${escapeHtml(w.chinese)}</td>
-        <td style="border:1px solid #bbb;padding:8px;vertical-align:middle">${imgCell}</td>
-        <td style="border:1px solid #bbb;padding:8px;font-size:14px;text-align:center;vertical-align:middle">${labelEmoji[w.label]} ${labelText[w.label]}</td>
-      </tr>`;
+    const label = ((labelEmoji[w.label]||'') + ' ' + (labelText[w.label]||'')).trim();
+    rowsXml += `<w:tr>${dxCell(dxPara(dxRun(w.english,{size:14})))}${dxCell(dxPara(dxRun(w.chinese||'',{size:14})))}${dxCell(imgPara)}${dxCell(dxPara(dxRun(label,{size:14}),{align:'center'}))}</w:tr>`;
   }
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="utf-8">
-<title>${escapeHtml(title)}</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
-<style>
-body{font-family:"Microsoft YaHei","SimSun",Arial,sans-serif}
-h1{color:#6C5CE7;font-size:22px;text-align:center;margin:8px 0}
-.meta{text-align:center;color:#999;font-size:11px;margin-bottom:14px}
-table{border-collapse:collapse;width:100%}
-th{background:#6C5CE7;color:#fff;border:1px solid #6C5CE7;padding:10px;font-size:15px}
-</style>
-</head>
-<body>
-<h1>${escapeHtml(title)}</h1>
-<div class="meta">导出时间：${new Date().toLocaleString()} · 共 ${words.length} 个单词</div>
-<table>
-<tr><th>单词</th><th>备注</th><th>图片</th><th>标签</th></tr>
-${rowsHTML}
-</table>
-</body>
-</html>`;
-  const blob = new Blob(['\ufeff' + html], {type:'application/msword;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = sanitizeFilename(title) + '.doc';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const body = dxPara(dxRun(title,{bold:true,size:22,color:'6C5CE7'}),{align:'center'})
+    + dxPara(dxRun(`导出时间：${new Date().toLocaleString()} · 共 ${words.length} 个单词`,{size:11,color:'999999'}),{align:'center'})
+    + dxTable(rowsXml)
+    + dxPara('');
+  downloadBlob(await B.build(body), sanitizeFilename(title) + '.docx');
   showToast('Word 已导出！');
 }
 async function exportLibWord(libId){
@@ -1975,6 +2133,30 @@ async function exportGroupWord(libId, groupId){
   if(!group) return;
   const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
   await exportWordsToWord(words, `单词表_${lib.name}_${group.name}`);
+}
+
+/* ========== 故事导出 Word ========== */
+async function exportStoryWord(storyId){
+  const story = state.stories.find(s=>s.id===storyId);
+  if(!story) return;
+  const images = await dbGetStoryImages(storyId);
+  if(!images.length){ showToast('这个故事没有图片可导出'); return; }
+  showToast('正在生成 Word...');
+  const B = createDocxBuilder();
+  let body = dxPara(dxRun(story.title,{bold:true,size:26,color:'6C5CE7'}),{align:'center'})
+    + dxPara(dxRun(`导出时间：${new Date().toLocaleString()} · 共 ${images.length} 张图片 · 一页一张图，方便打印`,{size:11,color:'999999'}),{align:'center'});
+  for(let i=0;i<images.length;i++){
+    const img = images[i];
+    const page = story.pages.find(p=>p.id===img.id);
+    const prompt = page && page.prompt && page.prompt.trim() ? page.prompt.trim() : '';
+    if(i>0) body += dxPageBreak();
+    body += dxPara(dxRun(`第 ${i+1} 页`,{size:14,color:'999999'}),{align:'center'});
+    body += dxPara(await B.addImage(img.data, 440, 540), {align:'center'});
+    if(prompt) body += dxPara(dxRun(prompt,{size:16,color:'333333'}),{align:'center'});
+  }
+  body += dxPara('');
+  downloadBlob(await B.build(body), sanitizeFilename('故事_' + story.title) + '.docx');
+  showToast('故事 Word 已导出！');
 }
 
 /* ========== 看图说话 Story ========== */
@@ -2013,6 +2195,7 @@ function renderStoryCard(story){
         <div class="story-name">${escapeHtml(story.title)}</div>
         <div class="story-meta">${story.pages.length} 张图片</div>
       </div>
+      <button class="btn btn-small btn-white story-page-btn" title="导出 Word" onclick="event.stopPropagation();exportStoryWord('${story.id}')">📤</button>
       <button class="btn btn-small btn-white story-page-btn" onclick="event.stopPropagation();startStoryEditById('${story.id}')">✏️</button>
       <button class="btn btn-small btn-red story-page-btn" onclick="event.stopPropagation();deleteStory('${story.id}')">🗑️</button>
     </div>`;
@@ -2232,6 +2415,7 @@ async function startStoryEdit(preLib, preGroup){
   }
   state.editingStory = story;
   state.editingStoryOldPageIds = [];
+  state.storyReplaceIndex = null;
   renderStoryEdit();
   showPage('page-story-edit');
 }
@@ -2241,6 +2425,7 @@ async function startStoryEditById(storyId){
   state.storyEditReturn = {type:'storyBack'};
   state.storyPlacementsCollapsed = true;
   state.storyEditCollapsedLibs = {};
+  state.storyReplaceIndex = null;
   const images = await dbGetStoryImages(storyId);
   state.editingStory = {
     id: story.id,
@@ -2286,7 +2471,8 @@ function renderStoryEditPages(){
       <div class="story-page-edit">
         <div class="story-page-num">${i+1}</div>
         <button class="story-page-remove" onclick="removeStoryPage(${i})">✕</button>
-        <img src="${p.data}" alt="" onclick="showImageFullscreen('${p.data}')">
+        <img src="${p.data}" alt="" onclick="triggerStoryImageReplace(${i})" title="点击替换图片">
+        <div class="story-replace-hint">📷 点击图片可替换</div>
         <textarea class="story-prompt-input" placeholder="📝 提示词：这张图讲了什么？可以引导孩子复述..." oninput="state.editingStory.pages[${i}].prompt=this.value">${escapeHtml(p.prompt||'')}</textarea>
       </div>`;
   });
@@ -2300,12 +2486,34 @@ function triggerStoryImageUpload(){
   input.value = '';
   input.click();
 }
+function triggerStoryImageReplace(index){
+  state.storyReplaceIndex = index;
+  const input = document.getElementById('story-image-input');
+  input.value = '';
+  input.click();
+}
 document.getElementById('story-image-input').addEventListener('change', async (e)=>{
   const es = state.editingStory;
   if(!es) return;
   const files = Array.from(e.target.files);
-  if(!files.length) return;
+  if(!files.length){ state.storyReplaceIndex = null; return; }
   e.target.value = '';
+  // 替换模式：用第一张图替换指定页的图片（保留提示词和顺序）
+  if(state.storyReplaceIndex !== null && state.storyReplaceIndex !== undefined){
+    const idx = state.storyReplaceIndex;
+    state.storyReplaceIndex = null;
+    const file = files[0];
+    if(file && file.type.startsWith('image/') && es.pages[idx]){
+      try{
+        es.pages[idx].data = await resizeImage(file, 1024, 0.8);
+        renderStoryEditPages();
+        showToast('图片已替换');
+      }catch(err){
+        showToast('图片处理失败');
+      }
+    }
+    return;
+  }
   const remaining = 20 - es.pages.length;
   const toProcess = files.slice(0, remaining);
   for(const file of toProcess){
@@ -2428,12 +2636,14 @@ async function saveStory(){
   saveStories();
   state.editingStory = null;
   state.editingStoryOldPageIds = [];
+  state.storyReplaceIndex = null;
   showToast('故事已保存！');
   goBackFromStoryEdit();
 }
 function cancelStoryEdit(){
   state.editingStory = null;
   state.editingStoryOldPageIds = [];
+  state.storyReplaceIndex = null;
   goBackFromStoryEdit();
 }
 function goBackFromStoryEdit(){
@@ -2490,6 +2700,7 @@ function renderStoryView(){
       <button class="back-btn" onclick="navigateStoryHome()">←</button>
       <div class="back-title">${escapeHtml(story.title)}</div>
       <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
+      <button class="btn btn-small btn-white" title="导出 Word" onclick="event.stopPropagation();exportStoryWord('${story.id}')">📤</button>
       <button class="btn btn-small btn-white" onclick="event.stopPropagation();startStoryEditById('${story.id}')">✏️</button>
     </div>
     <div class="story-view-header">
@@ -2497,7 +2708,7 @@ function renderStoryView(){
       <div class="story-view-progress">第 ${index+1} / ${state.storyViewImages.length} 张</div>
     </div>
     <img class="story-view-image" src="${state.storyViewImages[index].data}" alt="" onclick="showImageFullscreen('${state.storyViewImages[index].data}')">
-    <div class="story-view-prompt">${escapeHtml(page.prompt || '这张图讲了什么呀？')}</div>
+    ${(page.prompt && page.prompt.trim()) ? `<div class="story-view-prompt">${escapeHtml(page.prompt)}</div>` : ''}
     <div class="story-view-nav">
       <button class="btn btn-gray" onclick="storyViewPrev()" ${index===0?'disabled style="opacity:.5"':''}>⬅️ 上一张</button>
       <button class="btn btn-primary" onclick="storyViewNext()" ${index>=state.storyViewImages.length-1?'disabled style="opacity:.5"':''}>下一张 ➡️</button>
