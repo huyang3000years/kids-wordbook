@@ -396,9 +396,14 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-text-content{font-size:18px;line-height:1.8;color:var(--text);white-space:pre-wrap;word-break:break-word;padding:14px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px}
 .article-text-content .aw{cursor:pointer;border-radius:4px;padding:1px 2px;transition:background .15s;display:inline-block}
 .article-text-content .aw:hover{background:#E8F8FD}
-.article-text-content .aw.found{color:#000;font-weight:700}
+.article-text-content .aw.found.aw-red{color:#E53935}
+.article-text-content .aw.found.aw-yellow{color:#000;font-weight:700}
+.article-text-content .aw.found.aw-green{color:#000;font-weight:400}
 .article-img-content{width:100%;border-radius:var(--radius);display:block;margin-bottom:14px;box-shadow:var(--shadow)}
 .article-view-title{font-size:26px;font-weight:800;color:#000;text-align:center;margin-bottom:16px}
+.article-font-controls{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px}
+.article-font-controls .font-btn{min-width:52px;padding:8px 14px;font-size:18px;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:var(--primary);color:#fff;box-shadow:var(--shadow)}
+.article-font-controls .font-btn:active{transform:scale(.94)}
 .article-word-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px;text-align:center}
 .article-word-english{font-size:32px;font-weight:700;color:var(--primary);margin-bottom:8px}
 .article-word-chinese{font-size:18px;color:var(--text-l);margin-bottom:12px;white-space:pre-wrap}
@@ -541,6 +546,7 @@ const state = {
   articleEditCollapsedLibs: {},
   articleViewArticle: null,
   articleViewImages: [],
+  articleFontSize: 18,
   articleViewScrollY: 0,
   articleViewFrom: null,
   articleHomeMode: 'lib',
@@ -3412,7 +3418,7 @@ function renderArticleBlocks(){
           <div class="article-block-handle" onpointerdown="articleBlockPointerDown(event, ${i})">⠿</div>
           <div class="article-block-num" style="margin-left:28px">文字段落 ${i+1}</div>
           <button class="article-block-remove" onclick="removeArticleBlock(${i})">✕</button>
-          <textarea class="article-block-text" placeholder="输入文字内容..." oninput="state.editingArticle.blocks[${i}].content=this.value">${escapeHtml(b.content||'')}</textarea>
+          <textarea class="article-block-text" placeholder="输入文字内容..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="state.editingArticle.blocks[${i}].content=this.value">${escapeHtml(b.content||'')}</textarea>
         </div>`;
     } else if(b.type === 'image'){
       html += `
@@ -3721,11 +3727,36 @@ function renderArticleView(){
       <button class="btn btn-small btn-red" title="删除文章" onclick="deleteArticle('${article.id}')">🗑️</button>
     </div>
     <div class="article-view-title">${escapeHtml(article.title)}</div>
+    <div class="article-font-controls">
+      <button class="font-btn" title="缩小字体" onclick="articleFontZoom(-2)">A−</button>
+      <button class="font-btn" title="放大字体" onclick="articleFontZoom(2)">A＋</button>
+    </div>
     ${bodyHTML || '<div class="empty-state"><div class="emoji">📖</div><p>这篇文章没有内容</p></div>'}
     <div class="story-view-start-hint" style="margin-top:14px">📖 长按蓝色单词可跳转到词库</div>
   `;
   // 绑定长按事件
   setupArticleWordLongPress();
+  applyArticleFontSize();
+}
+function applyArticleFontSize(){
+  const s = state.articleFontSize || 18;
+  document.querySelectorAll('#page-article-view .article-text-content').forEach(el=>{ el.style.fontSize = s + 'px'; });
+  const t = document.querySelector('#page-article-view .article-view-title');
+  if(t) t.style.fontSize = (s + 6) + 'px';
+}
+function articleFontZoom(delta){
+  let s = (state.articleFontSize || 18) + delta;
+  s = Math.max(12, Math.min(48, s));
+  state.articleFontSize = s;
+  applyArticleFontSize();
+  try{ localStorage.setItem('wordbook_articleFont', String(s)); }catch(e){}
+}
+function articleWordLabelClass(w){
+  if(!w || !w.label) return '';
+  if(w.label === 'red') return ' aw-red';
+  if(w.label === 'yellow') return ' aw-yellow';
+  if(w.label === 'green') return ' aw-green';
+  return '';
 }
 function renderArticleText(text){
   // 将文本按空格/标点分词，匹配词库的英文单词
@@ -3745,14 +3776,16 @@ function renderArticleText(text){
     // 去除标点后匹配
     const clean = part.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
     if(clean && wordSet[clean]){
-      html += `<span class="aw found" data-word="${escapeHtml(clean)}" ontouchstart="articleWordPress('${escapeHtml(clean)}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" onmousedown="articleWordMouseDown('${escapeHtml(clean)}')">${escapeHtml(part)}</span>`;
+      const cls = 'aw found' + articleWordLabelClass(wordSet[clean]);
+      html += `<span class="${cls}" data-word="${escapeHtml(clean)}" ontouchstart="articleWordPress('${escapeHtml(clean)}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" onmousedown="articleWordMouseDown('${escapeHtml(clean)}')">${escapeHtml(part)}</span>`;
     } else {
       // 尝试去掉首尾标点后匹配
       const m = part.match(/^([^a-zA-Z]*)([a-zA-Z'-]+)([^a-zA-Z]*)$/);
       if(m){
         const c = m[2].toLowerCase();
         if(wordSet[c]){
-          html += escapeHtml(m[1]) + `<span class="aw found" data-word="${escapeHtml(c)}" ontouchstart="articleWordPress('${escapeHtml(c)}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" onmousedown="articleWordMouseDown('${escapeHtml(c)}')">${escapeHtml(m[2])}</span>` + escapeHtml(m[3]);
+          const cls = 'aw found' + articleWordLabelClass(wordSet[c]);
+          html += escapeHtml(m[1]) + `<span class="${cls}" data-word="${escapeHtml(c)}" ontouchstart="articleWordPress('${escapeHtml(c)}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" onmousedown="articleWordMouseDown('${escapeHtml(c)}')">${escapeHtml(m[2])}</span>` + escapeHtml(m[3]);
         } else {
           html += `<span class="aw" data-word="${escapeHtml(c)}" ontouchstart="articleWordPress('${escapeHtml(c)}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" onmousedown="articleWordMouseDown('${escapeHtml(c)}')">${escapeHtml(part)}</span>`;
         }
@@ -4006,6 +4039,7 @@ function init(){
   state.stories = loadStories();
   state.articleLibs = loadArticleLibs();
   state.articles = loadArticles();
+  try{ const f = parseInt(localStorage.getItem('wordbook_articleFont'), 10); if(!isNaN(f)) state.articleFontSize = f; }catch(e){}
   renderHome();
   showPage('page-home');
 }
