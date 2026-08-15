@@ -441,8 +441,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .home-entry-story{background:linear-gradient(135deg,#FF7EB3,#FF9A76)}
 .home-entry-article{background:linear-gradient(135deg,#1E3A8A,#3B5BAE)}
 /* 单词卡片右侧：颜色标记 + 收藏 上下分布 */
-.word-side{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;flex-shrink:0;padding:2px 0}
-.word-fav{background:none;border:none;font-size:29px;line-height:1;cursor:pointer;padding:2px;color:#CCCCCC;opacity:.55;transition:transform .12s,color .12s,opacity .12s;display:flex;align-items:center;justify-content:center;width:34px;height:34px;font-variant-emoji:text}
+.word-side{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;flex-shrink:0;padding:2px 0}
+.word-fav{background:none;border:none;font-size:29px;line-height:1;cursor:pointer;padding:2px;color:#CCCCCC;opacity:.55;transition:transform .12s,color .12s,opacity .12s;display:flex;align-items:center;justify-content:center;width:34px;height:34px;margin-top:6px;font-variant-emoji:text}
 .word-fav.on{color:#FFC107;opacity:1}
 .word-fav:active{transform:scale(.82)}
 .btn-fav-word{background:linear-gradient(135deg,#FFD93D,#FFE680);color:#7a5b00}
@@ -1333,7 +1333,7 @@ function renderWordList(containerId, words){
         </div>
         <div class="word-side">
           <div class="label-dot ${w.label}" onclick="cycleLabel('${w.id}',this)">${labelEmoji[w.label]}</div>
-          <button class="word-fav ${w.favorite?'on':''}" id="fav-${w.id}" title="收藏" onclick="toggleWordFavorite('${w.id}')">${w.favorite?'★︎':'☆︎'}</button>
+          <button class="word-fav ${w.favorite?'on':''}" id="fav-${w.id}" title="收藏" onclick="toggleWordFavorite('${w.id}', this)">${w.favorite?'★︎':'☆︎'}</button>
         </div>
       </div>
     </div>
@@ -1870,12 +1870,14 @@ function cycleLabel(wordId, element){
 }
 
 /* ========== Word Favorite ========== */
-function toggleWordFavorite(wordId){
+function toggleWordFavorite(wordId, btn){
   const word = state.words.find(w=>w.id===wordId);
   if(!word) return;
   word.favorite = !word.favorite;
   saveWords();
-  const btn = document.getElementById('fav-'+wordId);
+  // 优先更新被点击的按钮本身；同一单词可能同时出现在多个列表（词库/分组/全部单词），
+  // 它们 id 相同，getElementById 只会返回 DOM 中第一个，因此必须直接使用被点击的 this。
+  if(!btn){ btn = document.getElementById('fav-'+wordId); }
   if(btn){
     btn.classList.toggle('on', word.favorite);
     btn.textContent = word.favorite ? '★︎' : '☆︎';
