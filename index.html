@@ -396,8 +396,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-text-content{font-size:18px;line-height:1.8;color:var(--text);white-space:pre-wrap;word-break:break-word;padding:14px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px}
 .article-text-content .aw{cursor:pointer;border-radius:4px;padding:1px 2px;transition:background .15s;display:inline-block}
 .article-text-content .aw:hover{background:#E8F8FD}
-.article-text-content .aw.found.aw-red{color:#E53935}
-.article-text-content .aw.found.aw-yellow{color:#E6A800}
+.article-text-content .aw.found.aw-red{color:#E53935;font-weight:700}
+.article-text-content .aw.found.aw-yellow{color:#E6A800;font-weight:700}
 .article-text-content .aw.found.aw-green{color:#000;font-weight:400}
 .article-img-content{width:100%;border-radius:var(--radius);display:block;margin-bottom:14px;box-shadow:var(--shadow)}
 .article-view-title{font-size:26px;font-weight:800;color:#000;text-align:center;margin-bottom:16px}
@@ -551,6 +551,7 @@ const state = {
   articleViewFrom: null,
   articleHomeMode: 'lib',
   articleWordViewReturn: null,
+  articleWordViewId: null,
   articleDragBlockIndex: null,
   articleReplaceIndex: null,
 };
@@ -1651,6 +1652,10 @@ function goBackFromEdit(){
     navigateLibrary(r.libraryId);
   } else if(r && r.type === 'addToLib'){
     navigateAddToLib(r.libraryId);
+  } else if(r && r.type === 'article'){
+    navigateArticleView(r.articleId);
+  } else if(r && r.type === 'articleWord'){
+    showArticleWordView(r.wordId);
   } else if(state.currentGroupId && state.currentLibraryId){
     navigateGroup(state.currentLibraryId, state.currentGroupId);
   } else if(state.currentLibraryId){
@@ -3814,8 +3819,8 @@ function articleWordMouseDown(word){
   // 防止触摸时重复触发
 }
 function setupArticleWordLongPress(){
-  // 桌面端点击蓝色单词直接跳转
-  document.querySelectorAll('#page-article-view .aw.found').forEach(el=>{
+  // 桌面端点击单词：命中词库则查看详情，未命中则添加单词
+  document.querySelectorAll('#page-article-view .aw').forEach(el=>{
     el.addEventListener('click', function(){
       const word = this.getAttribute('data-word');
       if(word) jumpToWord(word);
@@ -3824,7 +3829,11 @@ function setupArticleWordLongPress(){
 }
 function jumpToWord(word){
   const w = state.words.find(x=>x.english.toLowerCase()===word.toLowerCase());
-  if(!w){ showToast('词库中没有找到「' + word + '」'); return; }
+  if(!w){
+    // 词库中没有该单词：进入添加流程
+    addWordFromArticle(word);
+    return;
+  }
   // 记录返回位置
   state.articleWordViewReturn = {
     articleId: state.articleViewArticle ? state.articleViewArticle.id : null,
@@ -3832,11 +3841,32 @@ function jumpToWord(word){
   };
   showArticleWordView(w.id);
 }
+function addWordFromArticle(word){
+  // 打开添加单词页面，英文已预填，保存后返回文章
+  state.editReturn = {
+    type:'article',
+    articleId: state.articleViewArticle ? state.articleViewArticle.id : null,
+    scrollY: window.scrollY || 0
+  };
+  state.editingWord = {
+    id: genId('word'),
+    english: word,
+    chinese: '',
+    label: 'yellow',
+    favorite: false,
+    images: [],
+    originalImageIds: [],
+    placements: []
+  };
+  renderWordEdit();
+  showPage('page-word-edit');
+}
 
 /* ===== 文章单词查看页 ===== */
 async function showArticleWordView(wordId){
   const w = state.words.find(x=>x.id===wordId);
   if(!w){ articleWordReturn(); return; }
+  state.articleWordViewId = wordId;
   const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
   const labelText = {red:'不会',yellow:'想一想',green:'会'};
   let images = [];
@@ -3849,6 +3879,10 @@ async function showArticleWordView(wordId){
     <div class="back-bar">
       <button class="back-btn" onclick="articleWordReturn()">←</button>
       <div class="back-title">📖 单词详情</div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-small btn-blue" onclick="editFromArticleWord()">✏️ 编辑</button>
+        <button class="btn btn-small btn-fav-word" id="aw-fav-btn" onclick="toggleArticleWordFavorite('${w.id}')">${w.favorite?'⭐ 已收藏':'☆ 收藏'}</button>
+      </div>
     </div>
     <div class="article-word-card">
       <div class="article-word-english">${escapeHtml(w.english)}</div>
@@ -3877,6 +3911,24 @@ function setArticleWordLabel(wordId, label){
     });
   }
   showToast('标记已更新');
+}
+function editFromArticleWord(){
+  const id = state.articleWordViewId;
+  const w = state.words.find(x=>x.id===id);
+  if(!w) return;
+  // 进入编辑页，保存后回到本单词详情页
+  startEditExisting(w).then(()=>{
+    state.editReturn = {type:'articleWord', wordId: id};
+  });
+}
+function toggleArticleWordFavorite(wordId){
+  const w = state.words.find(x=>x.id===wordId);
+  if(!w) return;
+  w.favorite = !w.favorite;
+  saveWords();
+  showToast(w.favorite ? '已收藏' : '已取消收藏');
+  const btn = document.getElementById('aw-fav-btn');
+  if(btn) btn.textContent = w.favorite ? '⭐ 已收藏' : '☆ 收藏';
 }
 function articleWordReturn(){
   const r = state.articleWordViewReturn;
