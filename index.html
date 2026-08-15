@@ -2064,9 +2064,9 @@ async function renderReview(){
         <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>⬅️ 上一个</button>
+        <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
         <button class="btn btn-white" onclick="revealReview()">👀 看图</button>
-        <button class="btn btn-primary" onclick="nextReviewWord()">下一个 ➡️</button>
+        <button class="btn btn-primary" onclick="nextReviewWord()">▶</button>
       </div>
     `;
   } else {
@@ -2091,8 +2091,8 @@ async function renderReview(){
         <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>⬅️ 上一个</button>
-        <button class="btn btn-primary" onclick="nextReviewWord()">下一个 ➡️</button>
+        <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
+        <button class="btn btn-primary" onclick="nextReviewWord()">▶</button>
       </div>
     `;
   }
