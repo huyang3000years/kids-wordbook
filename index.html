@@ -536,6 +536,8 @@ const state = {
   reviewReturn: null, // 复习返回来源：{type:'group'} 回分组页，{type:'select'} 回选择复习范围页，{type:'marked'} 回标记单词页
   markedLabel: null, // 当前标记单词页的标签：'red' | 'yellow'
   showHiddenLibs: false, // 首页是否展开显示隐藏的词库
+  showHiddenStoryLibs: false, // 看图说话首页是否展开显示隐藏的故事库
+  showHiddenArticleLibs: false, // 文章阅读首页是否展开显示隐藏的文章库
   storyLibs: [],
   stories: [],
   currentStoryLibId: null,
@@ -924,6 +926,18 @@ function toggleLibSort(){
   saveSortPref(p);
   refreshCurrentPage();
 }
+function toggleStoryLibSort(){
+  const p = getSortPref();
+  p.storyLibs = p.storyLibs === 'name' ? 'default' : 'name';
+  saveSortPref(p);
+  refreshCurrentPage();
+}
+function toggleArticleLibSort(){
+  const p = getSortPref();
+  p.articleLibs = p.articleLibs === 'name' ? 'default' : 'name';
+  saveSortPref(p);
+  refreshCurrentPage();
+}
 function toggleGroupSort(libId){
   const p = getSortPref();
   if(!p.groups) p.groups = {};
@@ -941,7 +955,9 @@ function toggleLibWordSort(libId){
 
 /* ========== Library Drag Sort ========== */
 let dragLibId = null;
-function dragLibStart(e, libId){
+let dragLibType = null; // 'word' | 'story' | 'article'
+function dragLibStart(e, type, libId){
+  dragLibType = type;
   dragLibId = libId;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', libId);
@@ -961,18 +977,22 @@ function dragLibDrop(e, targetLibId){
   e.stopPropagation();
   e.currentTarget.classList.remove('drag-over');
   if(!dragLibId || dragLibId === targetLibId){ dragLibId = null; return; }
-  const from = state.libraries.findIndex(l=>l.id===dragLibId);
-  const to = state.libraries.findIndex(l=>l.id===targetLibId);
+  const arr = dragLibType==='word' ? state.libraries : dragLibType==='story' ? state.storyLibs : state.articleLibs;
+  const saveFn = dragLibType==='word' ? saveLibraries : dragLibType==='story' ? saveStoryLibs : saveArticleLibs;
+  const from = arr.findIndex(l=>l.id===dragLibId);
+  const to = arr.findIndex(l=>l.id===targetLibId);
   if(from < 0 || to < 0){ dragLibId = null; return; }
-  const moved = state.libraries.splice(from,1)[0];
-  state.libraries.splice(to,0,moved);
-  saveLibraries();
+  const moved = arr.splice(from,1)[0];
+  arr.splice(to,0,moved);
+  saveFn();
   // 手动排序后切回“原顺序”模式，让新顺序立即可见
   const p = getSortPref();
-  if(p.libs === 'name'){ p.libs = 'default'; saveSortPref(p); }
+  const sortKey = dragLibType==='word' ? 'libs' : dragLibType==='story' ? 'storyLibs' : 'articleLibs';
+  if(p[sortKey] === 'name'){ p[sortKey] = 'default'; saveSortPref(p); }
   dragLibId = null;
   refreshCurrentPage();
-  showToast('词库顺序已更新');
+  const label = dragLibType==='word' ? '词库' : dragLibType==='story' ? '故事库' : '文章库';
+  showToast(label + '顺序已更新');
 }
 function dragLibEnd(){
   document.querySelectorAll('.lib-card').forEach(s=>{
@@ -993,6 +1013,30 @@ function toggleHideLib(id){
 }
 function toggleShowHiddenLibs(){
   state.showHiddenLibs = !state.showHiddenLibs;
+  refreshCurrentPage();
+}
+function toggleHideStoryLib(id){
+  const lib = state.storyLibs.find(l=>l.id===id);
+  if(!lib) return;
+  lib.hidden = !lib.hidden;
+  saveStoryLibs();
+  refreshCurrentPage();
+  showToast(lib.hidden ? `故事库「${lib.name}」已隐藏` : `故事库「${lib.name}」已显示`);
+}
+function toggleHideArticleLib(id){
+  const lib = state.articleLibs.find(l=>l.id===id);
+  if(!lib) return;
+  lib.hidden = !lib.hidden;
+  saveArticleLibs();
+  refreshCurrentPage();
+  showToast(lib.hidden ? `文章库「${lib.name}」已隐藏` : `文章库「${lib.name}」已显示`);
+}
+function toggleShowHiddenStoryLibs(){
+  state.showHiddenStoryLibs = !state.showHiddenStoryLibs;
+  refreshCurrentPage();
+}
+function toggleShowHiddenArticleLibs(){
+  state.showHiddenArticleLibs = !state.showHiddenArticleLibs;
   refreshCurrentPage();
 }
 function showToast(msg){
@@ -1123,7 +1167,7 @@ function renderWordLibHome(){
       const groupCount = lib.groups.length;
       return `
         <div class="lib-card ${isLibCollapsed('word',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''}" draggable="true"
-             ondragstart="dragLibStart(event,'${lib.id}')"
+             ondragstart="dragLibStart(event,'word','${lib.id}')"
              ondragover="dragLibOver(event)"
              ondragleave="dragLibLeave(event)"
              ondrop="dragLibDrop(event,'${lib.id}')"
@@ -2557,24 +2601,37 @@ function navigateStoryHome(){
 function renderStoryHome(){
   let libHTML = '';
   const favStoryCount = state.stories.filter(s=>s.favorite).length;
+  const visibleLibs = state.storyLibs.filter(l=>!l.hidden);
+  const hiddenLibs = state.storyLibs.filter(l=>l.hidden);
+  const showHidden = !!state.showHiddenStoryLibs;
   if(state.storyLibs.length === 0){
     libHTML = `<div class="empty-state"><div class="emoji">📚</div><p>还没有故事库<br>点击下方按钮创建一个吧！</p></div>`;
   } else {
-    libHTML = state.storyLibs.map(lib=>{
+    const sortPref = getSortPref();
+    const base = showHidden ? state.storyLibs : visibleLibs;
+    let libs = sortPref.storyLibs === 'name' ? sortByText(base, 'name') : base.slice();
+    libHTML = libs.map(lib=>{
       const count = getStoryLibStoryCount(lib.id);
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card ${isLibCollapsed('story',lib.id)?'collapsed':''}" onclick="navigateStoryLib('${lib.id}')">
+        <div class="lib-card ${isLibCollapsed('story',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''}" draggable="true"
+             ondragstart="dragLibStart(event,'story','${lib.id}')"
+             ondragover="dragLibOver(event)"
+             ondragleave="dragLibLeave(event)"
+             ondrop="dragLibDrop(event,'${lib.id}')"
+             ondragend="dragLibEnd(event)"
+             onclick="navigateStoryLib('${lib.id}')">
           <div class="lib-icon">🗂️</div>
           <div class="lib-info">
             <div class="lib-name">${escapeHtml(lib.name)}</div>
-            <div class="lib-meta">${groupCount} 个分组 · ${count} 个故事</div>
+            <div class="lib-meta">${groupCount} 个分组 · ${count} 个故事${lib.hidden?' · 🙈 已隐藏':''}</div>
           </div>
           <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('story','${lib.id}')">${isLibCollapsed('story',lib.id)?'▸':'▾'}</button>
           ${libGroupsInlineHTML('story', lib)}
         </div>`;
     }).join('');
   }
+  const sortChip = `<button class="sort-chip ${getSortPref().storyLibs==='name'?'active':''}" onclick="toggleStoryLibSort()">${getSortPref().storyLibs==='name'?'🕐 原顺序':'🔤 按名称'}</button>`;
   document.getElementById('page-story-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
@@ -2585,7 +2642,10 @@ function renderStoryHome(){
     </div>
     <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="showAllStories()">📖 全部故事 (${state.stories.length})</button>
     <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteStories()">⭐ 我的收藏 (${favStoryCount})</button>
-    <div class="section-title">🗂️ 我的故事库</div>
+    <div class="section-title">🗂️ 我的故事库 ${sortChip}</div>
+    ${hiddenLibs.length>0 ? `
+      <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="toggleShowHiddenStoryLibs()">${showHidden?'🙈 收起隐藏故事库':'👁️ 显示隐藏故事库 ('+hiddenLibs.length+')'}</button>
+    ` : ''}
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createStoryLib()">➕ 新建故事库</button>
     ${libHTML}
   `;
@@ -2667,6 +2727,7 @@ function renderStoryLib(){
   document.getElementById('page-story-lib').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryHome()">←</button>
+      <button class="btn btn-small btn-white" title="隐藏/显示故事库" onclick="toggleHideStoryLib('${lib.id}')">${lib.hidden?'👁️':'🙈'}</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameStoryLib('${lib.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除故事库" onclick="deleteStoryLib('${lib.id}')">🗑️</button>
@@ -3182,24 +3243,37 @@ function navigateArticleHome(){
 function renderArticleHome(){
   let libHTML = '';
   const favCount = state.articles.filter(a=>a.favorite).length;
+  const visibleLibs = state.articleLibs.filter(l=>!l.hidden);
+  const hiddenLibs = state.articleLibs.filter(l=>l.hidden);
+  const showHidden = !!state.showHiddenArticleLibs;
   if(state.articleLibs.length === 0){
     libHTML = `<div class="empty-state"><div class="emoji">📚</div><p>还没有文章库<br>点击下方按钮创建一个吧！</p></div>`;
   } else {
-    libHTML = state.articleLibs.map(lib=>{
+    const sortPref = getSortPref();
+    const base = showHidden ? state.articleLibs : visibleLibs;
+    let libs = sortPref.articleLibs === 'name' ? sortByText(base, 'name') : base.slice();
+    libHTML = libs.map(lib=>{
       const count = getArticleLibCount(lib.id);
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card ${isLibCollapsed('article',lib.id)?'collapsed':''}" onclick="navigateArticleLib('${lib.id}')">
+        <div class="lib-card ${isLibCollapsed('article',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''}" draggable="true"
+             ondragstart="dragLibStart(event,'article','${lib.id}')"
+             ondragover="dragLibOver(event)"
+             ondragleave="dragLibLeave(event)"
+             ondrop="dragLibDrop(event,'${lib.id}')"
+             ondragend="dragLibEnd(event)"
+             onclick="navigateArticleLib('${lib.id}')">
           <div class="lib-icon">📚</div>
           <div class="lib-info">
             <div class="lib-name">${escapeHtml(lib.name)}</div>
-            <div class="lib-meta">${groupCount} 个分组 · ${count} 篇文章</div>
+            <div class="lib-meta">${groupCount} 个分组 · ${count} 篇文章${lib.hidden?' · 🙈 已隐藏':''}</div>
           </div>
           <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('article','${lib.id}')">${isLibCollapsed('article',lib.id)?'▸':'▾'}</button>
           ${libGroupsInlineHTML('article', lib)}
         </div>`;
     }).join('');
   }
+  const sortChip = `<button class="sort-chip ${getSortPref().articleLibs==='name'?'active':''}" onclick="toggleArticleLibSort()">${getSortPref().articleLibs==='name'?'🕐 原顺序':'🔤 按名称'}</button>`;
   document.getElementById('page-article-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
@@ -3210,7 +3284,10 @@ function renderArticleHome(){
     </div>
     <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="showAllArticles()">📖 全部文章 (${state.articles.length})</button>
     <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteArticles()">⭐ 我的收藏 (${favCount})</button>
-    <div class="section-title">📚 我的文章库</div>
+    <div class="section-title">📚 我的文章库 ${sortChip}</div>
+    ${hiddenLibs.length>0 ? `
+      <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="toggleShowHiddenArticleLibs()">${showHidden?'🙈 收起隐藏文章库':'👁️ 显示隐藏文章库 ('+hiddenLibs.length+')'}</button>
+    ` : ''}
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createArticleLib()">➕ 新建文章库</button>
     ${libHTML}
   `;
@@ -3284,6 +3361,7 @@ function renderArticleLib(){
   document.getElementById('page-article-lib').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateArticleHome()">←</button>
+      <button class="btn btn-small btn-white" title="隐藏/显示文章库" onclick="toggleHideArticleLib('${lib.id}')">${lib.hidden?'👁️':'🙈'}</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameArticleLib('${lib.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除文章库" onclick="deleteArticleLib('${lib.id}')">🗑️</button>
