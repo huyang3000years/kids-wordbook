@@ -1326,7 +1326,7 @@ function renderWordList(containerId, words){
   container.innerHTML = words.map(w=>`
     <div class="word-card ${w.label}">
       <div class="word-card-top">
-        <div class="word-thumb" id="thumb-${w.id}" onclick="loadThumbDetail('${w.id}')">🖼️</div>
+        <div class="word-thumb" data-word-id="${w.id}" onclick="loadThumbDetail('${w.id}')">🖼️</div>
         <div class="word-main">
           <div class="word-english" onclick="editWord('${w.id}')">${escapeHtml(w.english)}</div>
           <div class="word-chinese">${escapeHtml(w.chinese)}</div>
@@ -1355,14 +1355,25 @@ async function loadThumbnails(wordIds){
     if(!byWord[img.wordId]) byWord[img.wordId] = [];
     byWord[img.wordId].push(img);
   }
+  // 按 sort 排序（拖拽顺序），保证"第一张"与编辑页一致
+  for(const id in byWord){
+    byWord[id].sort((a,b)=>{
+      const sa = (a.sort===undefined ? 999 : a.sort);
+      const sb = (b.sort===undefined ? 999 : b.sort);
+      return sa - sb;
+    });
+  }
+  // 同一单词可能同时出现在多个列表（我的词库/分组/全部单词/标记），
+  // 因此用 data-word-id 选中全部缩略图一并更新，不能用 getElementById（只命中第一个）。
+  const thumbs = document.querySelectorAll('.word-thumb');
   for(const id of wordIds){
     const images = byWord[id] || [];
     if(images.length > 0 && images[0].data){
-      const el = document.getElementById('thumb-'+id);
-      if(el){
-        el.innerHTML = `<img src="${images[0].data}" alt="" onerror="this.parentNode.innerHTML='🖼️'">`;
-        el.onclick = ()=>showImageFullscreen(images[0].data);
-      }
+      thumbs.forEach(el=>{
+        if(el.dataset.wordId === id){
+          el.innerHTML = `<img src="${images[0].data}" alt="" onerror="this.parentNode.innerHTML='🖼️'">`;
+        }
+      });
     }
   }
 }
