@@ -2442,6 +2442,7 @@ function navigateStoryHome(){
 }
 function renderStoryHome(){
   let libHTML = '';
+  const favStoryCount = state.stories.filter(s=>s.favorite).length;
   if(state.storyLibs.length === 0){
     libHTML = `<div class="empty-state"><div class="emoji">📚</div><p>还没有故事库<br>点击下方按钮创建一个吧！</p></div>`;
   } else {
@@ -2469,7 +2470,8 @@ function renderStoryHome(){
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
     </div>
-    <button class="btn btn-orange btn-block" style="margin-bottom:16px" onclick="showAllStories()">📖 全部故事 (${state.stories.length})</button>
+    <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="showAllStories()">📖 全部故事 (${state.stories.length})</button>
+    <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteStories()">⭐ 我的收藏 (${favStoryCount})</button>
     <div class="section-title">🗂️ 我的故事库</div>
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createStoryLib()">➕ 新建故事库</button>
     ${libHTML}
@@ -2478,7 +2480,6 @@ function renderStoryHome(){
 function showAllStories(){
   renderStoryHome();
   state.storyHomeMode = 'all';
-  const favStoryCount = state.stories.filter(s=>s.favorite).length;
   document.getElementById('page-story-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryHome()">←</button>
@@ -2488,7 +2489,6 @@ function showAllStories(){
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
     </div>
-    <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteStories()">⭐ 我的收藏 (${favStoryCount})</button>
     <div id="all-story-list"></div>
   `;
   renderStoryCards('all-story-list', state.stories.slice().reverse());
@@ -3068,6 +3068,7 @@ function navigateArticleHome(){
 }
 function renderArticleHome(){
   let libHTML = '';
+  const favCount = state.articles.filter(a=>a.favorite).length;
   if(state.articleLibs.length === 0){
     libHTML = `<div class="empty-state"><div class="emoji">📚</div><p>还没有文章库<br>点击下方按钮创建一个吧！</p></div>`;
   } else {
@@ -3095,7 +3096,8 @@ function renderArticleHome(){
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startArticleEdit(null)">➕ 新建文章</button>
     </div>
-    <button class="btn btn-orange btn-block" style="margin-bottom:16px" onclick="showAllArticles()">📖 全部文章 (${state.articles.length})</button>
+    <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="showAllArticles()">📖 全部文章 (${state.articles.length})</button>
+    <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteArticles()">⭐ 我的收藏 (${favCount})</button>
     <div class="section-title">📚 我的文章库</div>
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createArticleLib()">➕ 新建文章库</button>
     ${libHTML}
@@ -3103,14 +3105,12 @@ function renderArticleHome(){
 }
 function showAllArticles(){
   state.articleHomeMode = 'all';
-  const favCount = state.articles.filter(a=>a.favorite).length;
   document.getElementById('page-article-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateArticleHome()">←</button>
       <div class="back-title">📖 全部文章</div>
       <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
     </div>
-    <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="showFavoriteArticles()">⭐ 我的收藏 (${favCount})</button>
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startArticleEdit(null)">➕ 新建文章</button>
     </div>
