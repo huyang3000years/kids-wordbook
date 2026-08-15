@@ -64,11 +64,15 @@ body{
 /* Library card */
 .lib-card{
   background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;
-  box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;position:relative;
+  box-shadow:var(--shadow);display:flex;flex-wrap:wrap;align-items:center;gap:12px;position:relative;
 }
 .lib-card.dragging{opacity:.45}
 .lib-card.drag-over{box-shadow:0 0 0 3px var(--primary-l);border-color:var(--primary)}
 .lib-card.hidden-lib{background:#F4F4F4;opacity:.55}
+.lib-collapse-btn{margin-left:auto;background:transparent;border:none;font-size:20px;line-height:1;color:var(--text-2);cursor:pointer;padding:6px 8px;border-radius:8px;flex-shrink:0}
+.lib-collapse-btn:active{background:var(--bg-2)}
+.lib-groups-inline{flex-basis:100%;margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.lib-card.collapsed .lib-groups-inline{display:none}
 .lib-icon{font-size:40px}
 .lib-info{flex:1;min-width:0}
 .lib-name{font-size:22px;font-weight:700}
@@ -567,6 +571,43 @@ const state = {
   articleDragBlockIndex: null,
   articleReplaceIndex: null,
 };
+
+/* ========== 库折叠状态（持久化到 localStorage） ========== */
+const COLLAPSE_KEY = 'wordbook_collapsed';
+let collapsedState = (()=>{ try{ return JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || {}; }catch(e){ return {}; } })();
+// 默认折叠（隐藏分组）：未显式展开(=false)即视为折叠
+function isLibCollapsed(type, id){ return collapsedState[type+':'+id] !== false; }
+function toggleLibCollapse(type, id){
+  const k = type+':'+id;
+  collapsedState[k] = !isLibCollapsed(type, id);
+  try{ localStorage.setItem(COLLAPSE_KEY, JSON.stringify(collapsedState)); }catch(e){}
+  if(type==='word'){ renderWordLibHome(); }
+  else if(type==='story'){ renderStoryHome(); }
+  else if(type==='article'){ renderArticleHome(); }
+}
+// 渲染库卡片内联分组列表（展开时显示）
+function libGroupsInlineHTML(type, lib){
+  if(!lib.groups || lib.groups.length === 0) return '';
+  const items = lib.groups.map(g=>{
+    let cnt;
+    if(type==='word') cnt = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id)).length;
+    else if(type==='story') cnt = getStoryGroupStoryCount(lib.id, g.id);
+    else cnt = getArticleGroupCount(lib.id, g.id);
+    const nav = type==='word' ? `navigateGroup('${lib.id}','${g.id}')`
+              : type==='story' ? `navigateStoryGroup('${lib.id}','${g.id}')`
+              : `navigateArticleGroup('${lib.id}','${g.id}')`;
+    const unit = type==='word' ? '个单词' : type==='story' ? '个故事' : '篇文章';
+    return `
+      <div class="group-card" style="margin-bottom:0" onclick="event.stopPropagation();${nav}">
+        <div class="group-icon">📄</div>
+        <div class="group-info">
+          <div class="group-name">${escapeHtml(g.name)}</div>
+          <div class="group-meta">${cnt} ${unit}</div>
+        </div>
+      </div>`;
+  }).join('');
+  return `<div class="lib-groups-inline">${items}</div>`;
+}
 
 /* ========== localStorage ========== */
 function loadLibraries(){
@@ -1081,7 +1122,7 @@ function renderWordLibHome(){
       const wordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id)).length;
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card ${lib.hidden?'hidden-lib':''}" draggable="true"
+        <div class="lib-card ${isLibCollapsed('word',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''}" draggable="true"
              ondragstart="dragLibStart(event,'${lib.id}')"
              ondragover="dragLibOver(event)"
              ondragleave="dragLibLeave(event)"
@@ -1093,6 +1134,8 @@ function renderWordLibHome(){
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词${lib.hidden?' · 🙈 已隐藏':''}</div>
           </div>
+          <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('word','${lib.id}')">${isLibCollapsed('word',lib.id)?'▸':'▾'}</button>
+          ${libGroupsInlineHTML('word', lib)}
         </div>
       `;
     }).join('');
@@ -1157,7 +1200,7 @@ function renderLibrary(){
 
   document.getElementById('page-library').innerHTML = `
     <div class="back-bar">
-      <button class="back-btn" onclick="navigateHome()">←</button>
+      <button class="back-btn" onclick="navigateWordLibHome()">←</button>
       <button class="btn btn-small btn-white" title="隐藏/显示词库" onclick="toggleHideLib('${lib.id}')">${lib.hidden?'👁️':'🙈'}</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportLibWord('${lib.id}')">📤</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameLibrary('${lib.id}')">✏️</button>
@@ -2519,12 +2562,14 @@ function renderStoryHome(){
       const count = getStoryLibStoryCount(lib.id);
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card" onclick="navigateStoryLib('${lib.id}')">
+        <div class="lib-card ${isLibCollapsed('story',lib.id)?'collapsed':''}" onclick="navigateStoryLib('${lib.id}')">
           <div class="lib-icon">🗂️</div>
           <div class="lib-info">
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${count} 个故事</div>
           </div>
+          <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('story','${lib.id}')">${isLibCollapsed('story',lib.id)?'▸':'▾'}</button>
+          ${libGroupsInlineHTML('story', lib)}
         </div>`;
     }).join('');
   }
@@ -3142,12 +3187,14 @@ function renderArticleHome(){
       const count = getArticleLibCount(lib.id);
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card" onclick="navigateArticleLib('${lib.id}')">
+        <div class="lib-card ${isLibCollapsed('article',lib.id)?'collapsed':''}" onclick="navigateArticleLib('${lib.id}')">
           <div class="lib-icon">📚</div>
           <div class="lib-info">
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${count} 篇文章</div>
           </div>
+          <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('article','${lib.id}')">${isLibCollapsed('article',lib.id)?'▸':'▾'}</button>
+          ${libGroupsInlineHTML('article', lib)}
         </div>`;
     }).join('');
   }
