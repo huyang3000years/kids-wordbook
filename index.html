@@ -306,6 +306,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .stat-box.red .stat-num{color:var(--red)}
 .stat-box.yellow .stat-num{color:#E6A800}
 .stat-box.green .stat-num{color:var(--green)}
+.stat-box.clickable{cursor:pointer;transition:transform .12s,box-shadow .12s}
+.stat-box.clickable:active{transform:scale(.96)}
 /* Section title */
 .section-title{
   font-size:22px;font-weight:700;margin:20px 0 12px;display:flex;
@@ -451,6 +453,7 @@ textarea.form-input{resize:vertical;min-height:60px}
   <div id="page-group" class="page hidden"></div>
   <div id="page-word-edit" class="page hidden"></div>
   <div id="page-all-words" class="page hidden"></div>
+  <div id="page-marked-words" class="page hidden"></div>
   <div id="page-add-to-lib" class="page hidden"></div>
   <div id="page-review-select" class="page hidden"></div>
   <div id="page-review" class="page hidden"></div>
@@ -526,7 +529,8 @@ const state = {
   reviewFilter: null,
   reviewCollapsedLibs: {},
   reviewExcludeGreen: false, // 乱序复习时排除已会(🟢)的单词
-  reviewReturn: null, // 复习返回来源：{type:'group'} 回分组页，{type:'select'} 回选择复习范围页
+  reviewReturn: null, // 复习返回来源：{type:'group'} 回分组页，{type:'select'} 回选择复习范围页，{type:'marked'} 回标记单词页
+  markedLabel: null, // 当前标记单词页的标签：'red' | 'yellow'
   showHiddenLibs: false, // 首页是否展开显示隐藏的词库
   storyLibs: [],
   stories: [],
@@ -1033,8 +1037,8 @@ function renderHome(){
       <div class="home-module-title">📁 我的词库</div>
       <div class="stats-row">
         <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">全部</div></div>
-        <div class="stat-box red"><div class="stat-num">${redCount}</div><div class="stat-label">🔴 不会</div></div>
-        <div class="stat-box yellow"><div class="stat-num">${yellowCount}</div><div class="stat-label">🟡 想想</div></div>
+        <div class="stat-box red clickable" onclick="showMarkedWords('red')" title="查看所有不会的单词"><div class="stat-num">${redCount}</div><div class="stat-label">🔴 不会</div></div>
+        <div class="stat-box yellow clickable" onclick="showMarkedWords('yellow')" title="查看所有想想的单词"><div class="stat-num">${yellowCount}</div><div class="stat-label">🟡 想想</div></div>
         <div class="stat-box green"><div class="stat-num">${greenCount}</div><div class="stat-label">🟢 会</div></div>
       </div>
       <div class="btn-row">
@@ -1336,6 +1340,35 @@ function searchWords(query){
   renderWordList('all-words-list', filtered);
 }
 
+/* ========== Marked Words Page (从首页看板进入) ========== */
+function showMarkedWords(label){
+  state.markedLabel = label;
+  renderMarkedWords();
+  showPage('page-marked-words');
+}
+function renderMarkedWords(){
+  const label = state.markedLabel;
+  const words = state.words.filter(w=>w.label===label);
+  const title = label==='red' ? '🔴 不会的单词' : '🟡 想想的单词';
+  document.getElementById('page-marked-words').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateHome()">←</button>
+      <div class="back-title">${title} (${words.length})</div>
+    </div>
+    <button class="btn btn-green btn-large btn-block" style="margin-bottom:16px" onclick="reviewMarkedWords()">🔀 乱序复习</button>
+    <div id="marked-words-list"></div>
+  `;
+  renderWordList('marked-words-list', words);
+}
+function reviewMarkedWords(){
+  const label = state.markedLabel;
+  let words = state.words.filter(w=>w.label===label);
+  if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
+  if(!words.length){ showToast('没有单词可以复习'); return; }
+  state.reviewReturn = {type:'marked'};
+  beginReview(shuffle(words));
+}
+
 /* ========== Word Edit Page ========== */
 function startNewWord(preLib, preGroup){
   recordEditReturn();
@@ -1626,6 +1659,8 @@ function recordEditReturn(){
   if(p === 'page-all-words'){
     const se = document.getElementById('search-input');
     state.editReturn = {type:'allWords', filter: state.allWordsFilter || null, scrollY, search: se ? se.value : ''};
+  } else if(p === 'page-marked-words'){
+    state.editReturn = {type:'marked', label: state.markedLabel, scrollY};
   } else if(p === 'page-group'){
     state.editReturn = {type:'group', libraryId: state.currentLibraryId, groupId: state.currentGroupId, scrollY};
   } else if(p === 'page-library'){
@@ -1648,6 +1683,8 @@ function goBackFromEdit(){
         searchWords(r.search);
       }
     }
+  } else if(r && r.type === 'marked'){
+    showMarkedWords(r.label);
   } else if(r && r.type === 'group'){
     navigateGroup(r.libraryId, r.groupId);
   } else if(r && r.type === 'library'){
@@ -2140,6 +2177,10 @@ function endReview(){
     state.reviewReturn = null;
     renderGroup();
     showPage('page-group');
+  } else if(state.reviewReturn && state.reviewReturn.type==='marked'){
+    state.reviewReturn = null;
+    renderMarkedWords();
+    showPage('page-marked-words');
   } else {
     state.reviewReturn = null;
     navigateReviewSelect();
@@ -4081,6 +4122,7 @@ function refreshCurrentPage(){
   else if(state.currentPage === 'page-library') renderLibrary();
   else if(state.currentPage === 'page-group') renderGroup();
   else if(state.currentPage === 'page-all-words') renderAllWords();
+  else if(state.currentPage === 'page-marked-words') renderMarkedWords();
   else if(state.currentPage === 'page-add-to-lib') renderAddToLib();
   else if(state.currentPage === 'page-review-select') renderReviewSelect();
   else if(state.currentPage === 'page-story-home') renderStoryHome();
