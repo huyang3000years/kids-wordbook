@@ -227,6 +227,13 @@ textarea.form-input{resize:vertical;min-height:60px}
 .review-label-btn.red.active{background:var(--red);color:#fff;border-color:var(--red)}
 .review-label-btn.yellow.active{background:var(--yellow);color:#fff;border-color:var(--yellow)}
 .review-label-btn.green.active{background:var(--green);color:#fff;border-color:var(--green)}
+/* 复习第二行导航按钮：尺寸与第一行 review-label-btn 完全一致 */
+.review-nav-btn{
+  flex:1;padding:16px;border-radius:14px;border:none;
+  font-size:20px;font-weight:600;min-height:62px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  font-family:inherit;transition:transform .12s,box-shadow .12s;
+}
 /* Review exclude-green toggle */
 .review-toggle{
   display:flex;align-items:center;gap:8px;padding:12px 16px;margin-bottom:14px;
@@ -1016,7 +1023,6 @@ function renderHome(){
   document.getElementById('page-home').innerHTML = `
     <div class="app-header">
       <h1>📚 英语学习工具</h1>
-      <p>快乐学英语，天天进步！</p>
     </div>
     <div class="warning-box">
       ⚠️ 浏览器清理缓存会丢失数据，请定期导出备份！
@@ -2059,9 +2065,9 @@ async function renderReview(){
         <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-gray btn-large" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
-        <button class="btn btn-white btn-large" onclick="revealReview()">👀 看图</button>
-        <button class="btn btn-primary btn-large" onclick="nextReviewWord()">▶</button>
+        <button class="btn btn-gray review-nav-btn" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
+        <button class="btn btn-white review-nav-btn" onclick="revealReview()" title="看图">🖼️</button>
+        <button class="btn btn-primary review-nav-btn" onclick="nextReviewWord()">▶</button>
       </div>
     `;
   } else {
@@ -2086,9 +2092,9 @@ async function renderReview(){
         <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-gray btn-large" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
-        <button class="btn btn-white btn-large" onclick="hideReviewImage()">↩️ 返回</button>
-        <button class="btn btn-primary btn-large" onclick="nextReviewWord()">▶</button>
+        <button class="btn btn-gray review-nav-btn" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
+        <button class="btn btn-white review-nav-btn" onclick="hideReviewImage()" title="返回">↩️</button>
+        <button class="btn btn-primary review-nav-btn" onclick="nextReviewWord()">▶</button>
       </div>
     `;
   }
