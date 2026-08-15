@@ -384,7 +384,9 @@ textarea.form-input{resize:vertical;min-height:60px}
 /* 文章模块 */
 .article-block{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;padding:14px;position:relative}
 .article-block.drag-over{box-shadow:0 0 0 3px var(--primary-l)}
-.article-block-handle{cursor:grab;font-size:20px;color:var(--text-l);padding:4px 8px;user-select:none}
+.article-block-handle{cursor:grab;font-size:20px;color:var(--text-l);padding:4px 8px;user-select:none;touch-action:none}
+.article-block.dragging{opacity:.85;box-shadow:0 10px 24px rgba(0,0,0,.3);cursor:grabbing;z-index:1000}
+.article-block-handle:active{cursor:grabbing}
 .article-block-num{font-size:13px;color:var(--text-l);margin-bottom:6px}
 .article-block-text{width:100%;min-height:80px;border:1px solid #E0E0E0;border-radius:10px;padding:10px;font-size:16px;font-family:inherit;resize:vertical;line-height:1.6}
 .article-block-img{width:100%;border-radius:10px;display:block;cursor:pointer}
@@ -417,9 +419,9 @@ textarea.form-input{resize:vertical;min-height:60px}
   min-height:66px;font-size:22px;font-weight:800;text-align:left;
   padding:16px 22px;margin-bottom:14px;box-shadow:var(--shadow);color:#fff;border:none;
 }
-.home-entry-words{background:linear-gradient(135deg,#6C5CE7,#A29BFE)}
+.home-entry-words{background:linear-gradient(135deg,#2D6CDF,#5B9BD5)}
 .home-entry-story{background:linear-gradient(135deg,#FF7EB3,#FF9A76)}
-.home-entry-article{background:linear-gradient(135deg,#26C6DA,#4DD0E1)}
+.home-entry-article{background:linear-gradient(135deg,#1E3A8A,#3B5BAE)}
 /* 单词卡片右侧：颜色标记 + 收藏 上下分布 */
 .word-side{display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0}
 .word-fav{background:none;border:none;font-size:24px;line-height:1;cursor:pointer;padding:2px;filter:grayscale(1);opacity:.5;transition:transform .12s,opacity .12s}
@@ -1389,7 +1391,7 @@ function renderWordEdit(){
         <textarea class="form-input" id="input-chinese" placeholder="输入备注内容，支持任何文字">${escapeHtml(ew.chinese)}</textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">📷 图片（最多5张，按住拖动可排序）</label>
+        <label class="form-label">📷 图片（最多6张，按住拖动可排序）</label>
         <div class="image-slots" id="image-slots"></div>
       </div>
       <div class="form-group">
@@ -1480,9 +1482,9 @@ function toggleEditLibCollapse(libId){
   renderWordEditPlacements();
 }
 function triggerImageUpload(){
-  const remaining = 5 - state.editingWord.images.length;
+  const remaining = 6 - state.editingWord.images.length;
   if(remaining <= 0){
-    showToast('最多只能添加5张图片');
+    showToast('最多只能添加6张图片');
     return;
   }
   const input = document.getElementById('image-file-input');
@@ -1492,7 +1494,7 @@ function triggerImageUpload(){
 document.getElementById('image-file-input').addEventListener('change', async (e)=>{
   const files = Array.from(e.target.files);
   if(!files.length) return;
-  const remaining = 5 - state.editingWord.images.length;
+  const remaining = 6 - state.editingWord.images.length;
   const toProcess = files.slice(0, remaining);
   for(const file of toProcess){
     if(!file.type.startsWith('image/')) continue;
@@ -1508,7 +1510,7 @@ document.getElementById('image-file-input').addEventListener('change', async (e)
 function renderWordEditImages(){
   const ew = state.editingWord;
   let slotsHTML = '';
-  for(let i=0; i<5; i++){
+  for(let i=0; i<6; i++){
     if(ew.images[i]){
       slotsHTML += `
         <div class="image-slot filled draggable" draggable="true"
@@ -2742,7 +2744,7 @@ function renderStoryEdit(){
     </div>
     <div class="form-group" id="story-placement-form-group"></div>
     <div class="form-group">
-      <label class="form-label">🖼️ 故事图片与提示词（最多20张）</label>
+      <label class="form-label">🖼️ 故事图片与提示词（最多50张）</label>
       <div id="story-pages-container"></div>
       <button class="story-add-btn" onclick="triggerStoryImageUpload()">📷 添加图片</button>
     </div>
@@ -2768,8 +2770,8 @@ function renderStoryEditPages(){
 }
 function triggerStoryImageUpload(){
   const es = state.editingStory;
-  const remaining = 20 - es.pages.length;
-  if(remaining <= 0){ showToast('最多只能添加20张图片'); return; }
+  const remaining = 50 - es.pages.length;
+  if(remaining <= 0){ showToast('最多只能添加50张图片'); return; }
   const input = document.getElementById('story-image-input');
   input.value = '';
   input.click();
@@ -2802,7 +2804,7 @@ document.getElementById('story-image-input').addEventListener('change', async (e
     }
     return;
   }
-  const remaining = 20 - es.pages.length;
+  const remaining = 50 - es.pages.length;
   const toProcess = files.slice(0, remaining);
   for(const file of toProcess){
     if(!file.type.startsWith('image/')) continue;
@@ -3388,7 +3390,7 @@ function renderArticleEdit(){
     </div>
     <div class="form-group" id="article-placement-form-group"></div>
     <div class="form-group">
-      <label class="form-label">📄 文章内容（文字与图片交替排列，可拖动排序）</label>
+      <label class="form-label">📄 编辑内容</label>
       <div id="article-blocks-container"></div>
       <div class="article-add-row">
         <button class="btn btn-blue" onclick="addArticleTextBlock()">📝 新增文字</button>
@@ -3406,16 +3408,16 @@ function renderArticleBlocks(){
   ea.blocks.forEach((b, i)=>{
     if(b.type === 'text'){
       html += `
-        <div class="article-block" draggable="true" ondragstart="articleBlockDragStart(${i})" ondragover="articleBlockDragOver(event)" ondrop="articleBlockDrop(${i})" ondragend="articleBlockDragEnd()">
-          <div class="article-block-handle" style="position:absolute;top:8px;left:8px">⠿</div>
+        <div class="article-block" data-index="${i}">
+          <div class="article-block-handle" onpointerdown="articleBlockPointerDown(event, ${i})">⠿</div>
           <div class="article-block-num" style="margin-left:28px">文字段落 ${i+1}</div>
           <button class="article-block-remove" onclick="removeArticleBlock(${i})">✕</button>
           <textarea class="article-block-text" placeholder="输入文字内容..." oninput="state.editingArticle.blocks[${i}].content=this.value">${escapeHtml(b.content||'')}</textarea>
         </div>`;
     } else if(b.type === 'image'){
       html += `
-        <div class="article-block" draggable="true" ondragstart="articleBlockDragStart(${i})" ondragover="articleBlockDragOver(event)" ondrop="articleBlockDrop(${i})" ondragend="articleBlockDragEnd()">
-          <div class="article-block-handle" style="position:absolute;top:8px;left:8px">⠿</div>
+        <div class="article-block" data-index="${i}">
+          <div class="article-block-handle" onpointerdown="articleBlockPointerDown(event, ${i})">⠿</div>
           <div class="article-block-num" style="margin-left:28px">图片 ${i+1}</div>
           <button class="article-block-remove" onclick="removeArticleBlock(${i})">✕</button>
           ${b.data ? `<img class="article-block-img" src="${b.data}" alt="" onclick="triggerArticleImageReplace(${i})" title="点击替换图片">` : '<div style="color:var(--text-l);padding:20px;text-align:center">图片加载中...</div>'}
@@ -3474,25 +3476,53 @@ function removeArticleBlock(index){
   ea.blocks.splice(index, 1);
   renderArticleBlocks();
 }
-function articleBlockDragStart(index){
-  state.articleDragBlockIndex = index;
+let articleDrag = null;
+function articleBlockPointerDown(e, index){
+  if(e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  const container = document.getElementById('article-blocks-container');
+  const els = Array.from(container.querySelectorAll('.article-block'));
+  const el = els[index];
+  if(!el) return;
+  articleDrag = { index, el, els, startY: e.clientY, pointerId: e.pointerId };
+  el.classList.add('dragging');
+  try{ el.setPointerCapture(e.pointerId); }catch(_){}
+  window.addEventListener('pointermove', articleBlockPointerMove);
+  window.addEventListener('pointerup', articleBlockPointerUp);
 }
-function articleBlockDragOver(event){
-  event.preventDefault();
-  event.currentTarget.classList.add('drag-over');
+function articleBlockPointerMove(e){
+  if(!articleDrag) return;
+  const dy = e.clientY - articleDrag.startY;
+  articleDrag.el.style.transform = 'translateY(' + dy + 'px)';
+  e.preventDefault();
 }
-function articleBlockDrop(targetIndex){
-  const from = state.articleDragBlockIndex;
-  if(from === null || from === targetIndex) return;
+function articleBlockPointerUp(e){
+  if(!articleDrag) return;
+  window.removeEventListener('pointermove', articleBlockPointerMove);
+  window.removeEventListener('pointerup', articleBlockPointerUp);
+  const { index, els, el } = articleDrag;
   const ea = state.editingArticle;
-  const item = ea.blocks.splice(from, 1)[0];
-  ea.blocks.splice(targetIndex, 0, item);
-  state.articleDragBlockIndex = null;
-  renderArticleBlocks();
-}
-function articleBlockDragEnd(){
-  state.articleDragBlockIndex = null;
-  document.querySelectorAll('.article-block.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  const pointerY = e.clientY;
+  const others = [];
+  els.forEach((b, i)=>{
+    if(i === index) return;
+    const r = b.getBoundingClientRect();
+    others.push({ i, center: r.top + r.height/2 });
+  });
+  let pos = others.length;
+  for(let k=0; k<others.length; k++){
+    if(pointerY < others[k].center){ pos = k; break; }
+  }
+  let target = (pos < others.length) ? others[pos].i : (others.length ? others[others.length-1].i + 1 : 0);
+  el.classList.remove('dragging');
+  el.style.transform = '';
+  articleDrag = null;
+  if(target !== index){
+    const item = ea.blocks.splice(index, 1)[0];
+    const adj = target > index ? target - 1 : target;
+    ea.blocks.splice(adj, 0, item);
+    renderArticleBlocks();
+  }
 }
 function renderArticleEditPlacements(){
   const ea = state.editingArticle;
