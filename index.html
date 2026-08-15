@@ -526,6 +526,7 @@ const state = {
   reviewFilter: null,
   reviewCollapsedLibs: {},
   reviewExcludeGreen: false, // 乱序复习时排除已会(🟢)的单词
+  reviewReturn: null, // 复习返回来源：{type:'group'} 回分组页，{type:'select'} 回选择复习范围页
   showHiddenLibs: false, // 首页是否展开显示隐藏的词库
   storyLibs: [],
   stories: [],
@@ -1204,7 +1205,7 @@ function renderGroup(){
     <div class="section-title">📄 ${escapeHtml(group.name)}</div>
     <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord('${lib.id}','${group.id}')">➕ 添加单词</button>
     <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center">
-      <button class="btn btn-green" style="flex:1" onclick="startReviewGroup('${lib.id}','${group.id}')">🔀 本组乱序复习</button>
+      <button class="btn btn-green" style="flex:1" onclick="startReviewGroup('${lib.id}','${group.id}', true)">🔀 本组乱序复习</button>
       <div class="review-toggle ${state.reviewExcludeGreen?'on':''}" onclick="toggleReviewExcludeGreen()" style="flex-shrink:0;margin-bottom:0">
         <div class="rt-box"><div class="rt-knob"></div></div>
         <span>🙈 排除已会</span>
@@ -2006,18 +2007,21 @@ function startReviewAll(){
   let words = state.words.slice();
   if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
   if(!words.length){ showToast('没有单词可以复习'); return; }
+  state.reviewReturn = {type:'select'};
   beginReview(shuffle(words));
 }
 function startReviewLibrary(libId){
   let words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
   if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
   if(!words.length){ showToast('该词库没有单词'); return; }
+  state.reviewReturn = {type:'select'};
   beginReview(shuffle(words));
 }
-function startReviewGroup(libId, groupId){
+function startReviewGroup(libId, groupId, fromGroup){
   let words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
   if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
   if(!words.length){ showToast('该分组没有单词'); return; }
+  state.reviewReturn = fromGroup ? {type:'group'} : {type:'select'};
   beginReview(shuffle(words));
 }
 function toggleReviewLibCollapse(libId){
@@ -2132,7 +2136,14 @@ function endReview(){
   state.reviewWords = [];
   state.reviewIndex = 0;
   state.reviewRevealed = false;
-  navigateReviewSelect();
+  if(state.reviewReturn && state.reviewReturn.type==='group'){
+    state.reviewReturn = null;
+    renderGroup();
+    showPage('page-group');
+  } else {
+    state.reviewReturn = null;
+    navigateReviewSelect();
+  }
 }
 function renderReviewComplete(){
   const greenCount = state.reviewWords.filter(w=>w.label==='green').length;
