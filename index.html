@@ -397,7 +397,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-text-content .aw{cursor:pointer;border-radius:4px;padding:1px 2px;transition:background .15s;display:inline-block}
 .article-text-content .aw:hover{background:#E8F8FD}
 .article-text-content .aw.found.aw-red{color:#E53935}
-.article-text-content .aw.found.aw-yellow{color:#000;font-weight:700}
+.article-text-content .aw.found.aw-yellow{color:#E6A800}
 .article-text-content .aw.found.aw-green{color:#000;font-weight:400}
 .article-img-content{width:100%;border-radius:var(--radius);display:block;margin-bottom:14px;box-shadow:var(--shadow)}
 .article-view-title{font-size:26px;font-weight:800;color:#000;text-align:center;margin-bottom:16px}
@@ -3741,8 +3741,6 @@ function renderArticleView(){
 function applyArticleFontSize(){
   const s = state.articleFontSize || 18;
   document.querySelectorAll('#page-article-view .article-text-content').forEach(el=>{ el.style.fontSize = s + 'px'; });
-  const t = document.querySelector('#page-article-view .article-view-title');
-  if(t) t.style.fontSize = (s + 6) + 'px';
 }
 function articleFontZoom(delta){
   let s = (state.articleFontSize || 18) + delta;
