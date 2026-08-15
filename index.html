@@ -97,7 +97,7 @@ body{
 .word-card.red::before{background:var(--red)}
 .word-card.yellow::before{background:var(--yellow)}
 .word-card.green::before{background:var(--green)}
-.word-card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
+.word-card-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 .word-thumb{
   width:70px;height:70px;border-radius:12px;background:#F0F0F0;
   display:flex;align-items:center;justify-content:center;font-size:32px;
@@ -114,9 +114,9 @@ body{
 .word-card-actions{display:flex;gap:8px;margin-top:8px}
 /* Label buttons */
 .label-dot{
-  width:20px;height:20px;border-radius:50%;border:2px solid #E0E0E0;
+  width:24px;height:24px;border-radius:50%;border:2px solid #E0E0E0;
   cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  font-size:10px;transition:transform .12s;
+  font-size:12px;transition:transform .12s;
 }
 .label-dot:active{transform:scale(.9)}
 .label-dot.red{background:var(--red);border-color:var(--red)}
@@ -442,8 +442,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .home-entry-article{background:linear-gradient(135deg,#1E3A8A,#3B5BAE)}
 /* 单词卡片右侧：颜色标记 + 收藏 上下分布 */
 .word-side{display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0}
-.word-fav{background:none;border:none;font-size:24px;line-height:1;cursor:pointer;padding:2px;filter:grayscale(1);opacity:.5;transition:transform .12s,opacity .12s}
-.word-fav.on{filter:none;opacity:1}
+.word-fav{background:none;border:none;font-size:29px;line-height:1;cursor:pointer;padding:2px;color:#CCCCCC;opacity:.55;transition:transform .12s,color .12s,opacity .12s}
+.word-fav.on{color:#FFC107;opacity:1}
 .word-fav:active{transform:scale(.82)}
 .btn-fav-word{background:linear-gradient(135deg,#FFD93D,#FFE680);color:#7a5b00}
 </style>
@@ -1333,7 +1333,7 @@ function renderWordList(containerId, words){
         </div>
         <div class="word-side">
           <div class="label-dot ${w.label}" onclick="cycleLabel('${w.id}',this)">${labelEmoji[w.label]}</div>
-          <button class="word-fav ${w.favorite?'on':''}" id="fav-${w.id}" title="收藏" onclick="toggleWordFavorite('${w.id}')">${w.favorite?'⭐':'☆'}</button>
+          <button class="word-fav ${w.favorite?'on':''}" id="fav-${w.id}" title="收藏" onclick="toggleWordFavorite('${w.id}')">${w.favorite?'★':'☆'}</button>
         </div>
       </div>
     </div>
@@ -1878,7 +1878,7 @@ function toggleWordFavorite(wordId){
   const btn = document.getElementById('fav-'+wordId);
   if(btn){
     btn.classList.toggle('on', word.favorite);
-    btn.textContent = word.favorite ? '⭐' : '☆';
+    btn.textContent = word.favorite ? '★' : '☆';
   }
   showToast(word.favorite ? '已加入收藏 ⭐' : '已取消收藏');
 }
