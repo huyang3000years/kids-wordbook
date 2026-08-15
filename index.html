@@ -412,11 +412,20 @@ textarea.form-input{resize:vertical;min-height:60px}
   font-size:24px;font-weight:800;margin-bottom:14px;display:flex;
   align-items:center;gap:8px;
 }
-/* 首页模块导航入口按钮 */
+/* 首页模块导航入口按钮（各模块独立配色，避免重复） */
 .home-entry{
   min-height:66px;font-size:22px;font-weight:800;text-align:left;
-  padding:16px 22px;margin-bottom:14px;box-shadow:var(--shadow);
+  padding:16px 22px;margin-bottom:14px;box-shadow:var(--shadow);color:#fff;border:none;
 }
+.home-entry-words{background:linear-gradient(135deg,#6C5CE7,#A29BFE)}
+.home-entry-story{background:linear-gradient(135deg,#FF7EB3,#FF9A76)}
+.home-entry-article{background:linear-gradient(135deg,#26C6DA,#4DD0E1)}
+/* 单词卡片右侧：颜色标记 + 收藏 上下分布 */
+.word-side{display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0}
+.word-fav{background:none;border:none;font-size:24px;line-height:1;cursor:pointer;padding:2px;filter:grayscale(1);opacity:.5;transition:transform .12s,opacity .12s}
+.word-fav.on{filter:none;opacity:1}
+.word-fav:active{transform:scale(.82)}
+.btn-fav-word{background:linear-gradient(135deg,#FFD93D,#FFE680);color:#7a5b00}
 </style>
 </head>
 <body>
@@ -1018,9 +1027,9 @@ function renderHome(){
       </div>
     </div>
 
-    <button class="btn btn-primary btn-block home-entry" onclick="navigateWordLibHome()">📁 我的词库 (${state.libraries.length})</button>
-    <button class="btn btn-purple btn-block home-entry" onclick="navigateStoryHome()">🎨 看图说话 (${state.stories.length})</button>
-    <button class="btn btn-teal btn-block home-entry" onclick="navigateArticleHome()">📖 文章阅读 (${state.articles.length})</button>
+    <button class="btn btn-block home-entry home-entry-words" onclick="navigateWordLibHome()">📁 我的词库 (${state.libraries.length})</button>
+    <button class="btn btn-block home-entry home-entry-story" onclick="navigateStoryHome()">🎨 看图说话 (${state.stories.length})</button>
+    <button class="btn btn-block home-entry home-entry-article" onclick="navigateArticleHome()">📖 文章阅读 (${state.articles.length})</button>
 
     <div class="btn-row" style="margin-top:6px;margin-bottom:20px">
       <button class="btn btn-blue" onclick="exportBackup()">💾 导出备份</button>
@@ -1069,14 +1078,21 @@ function renderWordLibHome(){
     }).join('');
   }
   const sortChip = `<button class="sort-chip ${getSortPref().libs==='name'?'active':''}" onclick="toggleLibSort()">${getSortPref().libs==='name'?'🕐 原顺序':'🔤 按名称'}</button>`;
+  const favWordCount = state.words.filter(w=>w.favorite).length;
   document.getElementById('page-wordlib-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">📁 我的词库</div>
     </div>
-    <button class="btn btn-orange btn-block" style="margin-bottom:16px" onclick="navigateAllWords()">📖 全部单词 (${total})</button>
+    <div class="app-header">
+      <p>快乐学英语，天天进步！</p>
+    </div>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-green btn-large" onclick="createLibrary()">➕ 新建词库</button>
+    </div>
+    <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="navigateAllWords()">📖 全部单词 (${total})</button>
+    <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteWords()">⭐ 我的收藏 (${favWordCount})</button>
     <div class="section-title">📁 我的词库 ${sortChip}</div>
-    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createLibrary()">➕ 新建词库</button>
     ${hiddenLibs.length>0 ? `
       <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="toggleShowHiddenLibs()">${showHidden?'🙈 收起隐藏词库':'👁️ 显示隐藏词库 ('+hiddenLibs.length+')'}</button>
     ` : ''}
@@ -1213,7 +1229,10 @@ function renderWordList(containerId, words){
           <div class="word-english" onclick="editWord('${w.id}')">${escapeHtml(w.english)}</div>
           <div class="word-chinese">${escapeHtml(w.chinese)}</div>
         </div>
-        <div class="label-dot ${w.label}" onclick="cycleLabel('${w.id}',this)">${labelEmoji[w.label]}</div>
+        <div class="word-side">
+          <div class="label-dot ${w.label}" onclick="cycleLabel('${w.id}',this)">${labelEmoji[w.label]}</div>
+          <button class="word-fav ${w.favorite?'on':''}" id="fav-${w.id}" title="收藏" onclick="toggleWordFavorite('${w.id}')">${w.favorite?'⭐':'☆'}</button>
+        </div>
       </div>
     </div>
   `).join('');
@@ -1265,13 +1284,20 @@ function getFilteredAllWords(){
   let words = state.words;
   if(state.allWordsFilter === 'red'){
     words = words.filter(w=>w.label==='red');
+  } else if(state.allWordsFilter === 'favorite'){
+    words = words.filter(w=>w.favorite);
   }
   return words;
+}
+function showFavoriteWords(){
+  state.allWordsFilter = 'favorite';
+  renderAllWords();
+  showPage('page-all-words');
 }
 function renderAllWords(){
   const filter = state.allWordsFilter;
   const words = getFilteredAllWords();
-  const title = filter === 'red' ? '🔴 不会的单词' : '📖 全部单词';
+  const title = filter === 'red' ? '🔴 不会的单词' : filter === 'favorite' ? '⭐ 我的收藏' : '📖 全部单词';
   document.getElementById('page-all-words').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateWordLibHome()">←</button>
@@ -1308,6 +1334,7 @@ function startNewWord(preLib, preGroup){
     english: '',
     chinese: '',
     label: 'yellow',
+    favorite: false,
     images: [],
     originalImageIds: [],
     placements: (preLib && preGroup) ? [{libraryId:preLib, groupId:preGroup}] : []
@@ -1329,6 +1356,7 @@ async function startEditExisting(word){
     english: word.english,
     chinese: word.chinese,
     label: word.label,
+    favorite: !!word.favorite,
     images: images.map(img=>({id:img.id, data:img.data, isNew:false})),
     originalImageIds: images.map(img=>img.id),
     placements: (word.placements||[]).slice()
@@ -1665,6 +1693,7 @@ async function saveWord(){
     english: ew.english,
     chinese: ew.chinese,
     label: ew.label,
+    favorite: !!ew.favorite,
     placements: ew.placements
   };
   const idx = state.words.findIndex(w=>w.id===ew.id);
@@ -1697,6 +1726,20 @@ function cycleLabel(wordId, element){
   if(state.currentPage === 'home'){
     renderHome();
   }
+}
+
+/* ========== Word Favorite ========== */
+function toggleWordFavorite(wordId){
+  const word = state.words.find(w=>w.id===wordId);
+  if(!word) return;
+  word.favorite = !word.favorite;
+  saveWords();
+  const btn = document.getElementById('fav-'+wordId);
+  if(btn){
+    btn.classList.toggle('on', word.favorite);
+    btn.textContent = word.favorite ? '⭐' : '☆';
+  }
+  showToast(word.favorite ? '已加入收藏 ⭐' : '已取消收藏');
 }
 
 /* ========== Library Actions ========== */
@@ -2433,6 +2476,7 @@ function renderStoryHome(){
 function showAllStories(){
   renderStoryHome();
   state.storyHomeMode = 'all';
+  const favStoryCount = state.stories.filter(s=>s.favorite).length;
   document.getElementById('page-story-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryHome()">←</button>
@@ -2442,9 +2486,29 @@ function showAllStories(){
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
     </div>
+    <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteStories()">⭐ 我的收藏 (${favStoryCount})</button>
     <div id="all-story-list"></div>
   `;
   renderStoryCards('all-story-list', state.stories.slice().reverse());
+}
+function showFavoriteStories(){
+  renderStoryHome();
+  state.storyHomeMode = 'all';
+  document.getElementById('page-story-home').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="navigateStoryHome()">←</button>
+      <div class="back-title">⭐ 我的收藏故事</div>
+      <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
+    </div>
+    <button class="btn btn-orange btn-block" style="margin-bottom:16px" onclick="showAllStories()">📖 全部故事 (${state.stories.length})</button>
+    <div id="all-story-list"></div>
+  `;
+  const favs = state.stories.filter(s=>s.favorite).slice().reverse();
+  if(favs.length === 0){
+    document.getElementById('all-story-list').innerHTML = `<div class="empty-state"><div class="emoji">⭐</div><p>还没有收藏的故事<br>在故事页面点击 ☆ 即可收藏</p></div>`;
+  } else {
+    renderStoryCards('all-story-list', favs);
+  }
 }
 
 /* ===== 故事库页面（分组列表，与词库分组一致） ===== */
@@ -2630,7 +2694,8 @@ async function startStoryEdit(preLib, preGroup){
     id: genId('story'),
     title: '',
     placements: [],
-    pages: []
+    pages: [],
+    favorite: false
   };
   if(preLib){
     story.placements = [{libraryId: preLib, groupId: (preGroup && preGroup!=='default') ? preGroup : null}];
@@ -2652,6 +2717,7 @@ async function startStoryEditById(storyId){
   state.editingStory = {
     id: story.id,
     title: story.title,
+    favorite: !!story.favorite,
     placements: story.placements.map(p=>({...p})),
     pages: story.pages.map((p,i)=>{
       const img = images.find(im=>im.id===p.id);
@@ -2846,6 +2912,7 @@ async function saveStory(){
   const storyData = {
     id: es.id,
     title: es.title,
+    favorite: !!es.favorite,
     placements: es.placements,
     pages: es.pages.map(p=>({id:p.id, prompt:p.prompt||''}))
   };
@@ -2928,6 +2995,7 @@ function renderStoryView(){
       <div class="back-bar">
         <button class="back-btn" onclick="storyBack()">←</button>
         <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
+        ${story ? `<button class="btn btn-small btn-white" title="收藏" onclick="toggleStoryFavorite('${story.id}')">${story.favorite?'⭐':'☆'}</button>` : ''}
       </div>
       <div class="empty-state"><div class="emoji">🖼️</div><p>这个故事没有图片</p></div>`;
     return;
@@ -2941,6 +3009,7 @@ function renderStoryView(){
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportStoryWord('${story.id}')">📤</button>
       <button class="btn btn-small btn-white" title="编辑故事" onclick="startStoryEditById('${story.id}')">✏️</button>
+      <button class="btn btn-small btn-white" title="收藏" onclick="toggleStoryFavorite('${story.id}')">${story.favorite?'⭐':'☆'}</button>
       <button class="btn btn-small btn-red" title="删除故事" onclick="deleteStory('${story.id}')">🗑️</button>
     </div>
     <div class="story-view-header">
@@ -2969,6 +3038,14 @@ function storyViewNext(){
   } else {
     showToast('🎉 故事讲完啦！你真棒！');
   }
+}
+async function toggleStoryFavorite(storyId){
+  const story = state.stories.find(s=>s.id===storyId);
+  if(!story) return;
+  story.favorite = !story.favorite;
+  saveStories();
+  renderStoryView();
+  showToast(story.favorite ? '已加入收藏 ⭐' : '已取消收藏');
 }
 
 /* ========== 文章阅读 Article ========== */
