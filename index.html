@@ -1015,7 +1015,7 @@ function renderHome(){
 
   document.getElementById('page-home').innerHTML = `
     <div class="app-header">
-      <h1>📚 英语单词本</h1>
+      <h1>📚 英语学习工具</h1>
       <p>快乐学英语，天天进步！</p>
     </div>
     <div class="warning-box">
@@ -1093,19 +1093,14 @@ function renderWordLibHome(){
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">📁 我的词库</div>
     </div>
-    <div class="app-header">
-      <p>快乐学英语，天天进步！</p>
-    </div>
-    <div class="btn-row" style="margin-bottom:12px">
-      <button class="btn btn-green btn-large" onclick="createLibrary()">➕ 新建词库</button>
-    </div>
+    <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord()">➕ 添加单词</button>
     <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="navigateAllWords()">📖 全部单词 (${total})</button>
     <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteWords()">⭐ 我的收藏 (${favWordCount})</button>
     <div class="section-title">📁 我的词库 ${sortChip}</div>
     ${hiddenLibs.length>0 ? `
       <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="toggleShowHiddenLibs()">${showHidden?'🙈 收起隐藏词库':'👁️ 显示隐藏词库 ('+hiddenLibs.length+')'}</button>
     ` : ''}
-    ${visibleLibs.length>0 ? `<div style="font-size:14px;color:var(--text-l);margin-bottom:8px">💡 按住词库卡片上下拖动可排序，进入词库后顶部可编辑/导出/隐藏/删除</div>` : ''}
+    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createLibrary()">➕ 新建词库</button>
     ${libHTML}
   `;
 }
@@ -2064,9 +2059,9 @@ async function renderReview(){
         <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
-        <button class="btn btn-white" onclick="revealReview()">👀 看图</button>
-        <button class="btn btn-primary" onclick="nextReviewWord()">▶</button>
+        <button class="btn btn-gray btn-large" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
+        <button class="btn btn-white btn-large" onclick="revealReview()">👀 看图</button>
+        <button class="btn btn-primary btn-large" onclick="nextReviewWord()">▶</button>
       </div>
     `;
   } else {
@@ -2091,14 +2086,19 @@ async function renderReview(){
         <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-gray" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
-        <button class="btn btn-primary" onclick="nextReviewWord()">▶</button>
+        <button class="btn btn-gray btn-large" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
+        <button class="btn btn-white btn-large" onclick="hideReviewImage()">↩️ 返回</button>
+        <button class="btn btn-primary btn-large" onclick="nextReviewWord()">▶</button>
       </div>
     `;
   }
 }
 function revealReview(){
   state.reviewRevealed = true;
+  renderReview();
+}
+function hideReviewImage(){
+  state.reviewRevealed = false;
   renderReview();
 }
 function setReviewLabel(label){
@@ -2474,9 +2474,6 @@ function renderStoryHome(){
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">🎨 看图说话</div>
-    </div>
-    <div class="app-header">
-      <p>看图片讲故事，天天练口才！</p>
     </div>
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
@@ -3100,9 +3097,6 @@ function renderArticleHome(){
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">📖 文章阅读</div>
-    </div>
-    <div class="app-header">
-      <p>读文章学长句，长按单词看释义！</p>
     </div>
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startArticleEdit(null)">➕ 新建文章</button>
