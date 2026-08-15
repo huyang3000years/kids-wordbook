@@ -1077,7 +1077,7 @@ function renderHome(){
     <div class="home-module">
       <div class="home-module-title">📁 我的词库</div>
       <div class="stats-row">
-        <div class="stat-box clickable" onclick="navigateAllWords()" title="查看全部单词"><div class="stat-num">${total}</div><div class="stat-label">全部</div></div>
+        <div class="stat-box clickable" onclick="navigateAllWords(null, 'home')" title="查看全部单词"><div class="stat-num">${total}</div><div class="stat-label">全部</div></div>
         <div class="stat-box red clickable" onclick="showMarkedWords('red')" title="查看所有不会的单词"><div class="stat-num">${redCount}</div><div class="stat-label">🔴 不会</div></div>
         <div class="stat-box yellow clickable" onclick="showMarkedWords('yellow')" title="查看所有想想的单词"><div class="stat-num">${yellowCount}</div><div class="stat-label">🟡 想想</div></div>
         <div class="stat-box green"><div class="stat-num">${greenCount}</div><div class="stat-label">🟢 会</div></div>
@@ -1148,7 +1148,7 @@ function renderWordLibHome(){
       <div class="back-title">📁 我的词库</div>
     </div>
     <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord()">➕ 添加单词</button>
-    <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="navigateAllWords()">📖 全部单词 (${total})</button>
+    <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="navigateAllWords(null, 'wordlib')">📖 全部单词 (${total})</button>
     <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteWords()">⭐ 我的收藏 (${favWordCount})</button>
     <div class="section-title">📁 我的词库 ${sortChip}</div>
     ${hiddenLibs.length>0 ? `
@@ -1333,8 +1333,9 @@ async function loadThumbDetail(wordId){
 }
 
 /* ========== All Words Page ========== */
-function navigateAllWords(filter){
+function navigateAllWords(filter, from){
   state.allWordsFilter = filter || null;
+  state.allWordsFrom = from || 'wordlib';
   renderAllWords();
   showPage('page-all-words');
 }
@@ -1347,8 +1348,9 @@ function getFilteredAllWords(){
   }
   return words;
 }
-function showFavoriteWords(){
+function showFavoriteWords(from){
   state.allWordsFilter = 'favorite';
+  state.allWordsFrom = from || 'wordlib';
   renderAllWords();
   showPage('page-all-words');
 }
@@ -1358,7 +1360,7 @@ function renderAllWords(){
   const title = filter === 'red' ? '🔴 不会的单词' : filter === 'favorite' ? '⭐ 我的收藏' : '📖 全部单词';
   document.getElementById('page-all-words').innerHTML = `
     <div class="back-bar">
-      <button class="back-btn" onclick="navigateWordLibHome()">←</button>
+      <button class="back-btn" onclick="${state.allWordsFrom==='home' ? 'navigateHome()' : 'navigateWordLibHome()'}">←</button>
       <div class="back-title">${title} (${words.length})</div>
     </div>
     <div class="form-group" style="margin-bottom:16px">
@@ -1701,7 +1703,7 @@ function recordEditReturn(){
   const scrollY = window.scrollY || 0;
   if(p === 'page-all-words'){
     const se = document.getElementById('search-input');
-    state.editReturn = {type:'allWords', filter: state.allWordsFilter || null, scrollY, search: se ? se.value : ''};
+    state.editReturn = {type:'allWords', filter: state.allWordsFilter || null, from: state.allWordsFrom || 'wordlib', scrollY, search: se ? se.value : ''};
   } else if(p === 'page-marked-words'){
     state.editReturn = {type:'marked', label: state.markedLabel, scrollY};
   } else if(p === 'page-group'){
@@ -1718,7 +1720,7 @@ function goBackFromEdit(){
   const r = state.editReturn;
   const restoreY = (r && r.scrollY) ? r.scrollY : 0;
   if(r && r.type === 'allWords'){
-    navigateAllWords(r.filter);
+    navigateAllWords(r.filter, r.from);
     if(r.search){
       const se = document.getElementById('search-input');
       if(se){
