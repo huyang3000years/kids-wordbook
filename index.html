@@ -2481,7 +2481,8 @@ function createDocxBuilder(){
   }
   return {addImage, build};
 }
-function downloadBlob(blob, filename){
+// 兜底：标准下载（浏览器默认下载目录）
+function triggerDownloadFallback(blob, filename){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -2490,6 +2491,34 @@ function downloadBlob(blob, filename){
   a.click();
   document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
+
+// 优先调用 File System Access API 让用户自选保存位置（Chrome/Edge + https 环境）；
+// 不支持、非安全上下文或用户取消时回退到标准下载。返回 false 表示用户主动取消。
+async function saveFileWithPicker(blob, filename, mimeType){
+  if(window.showSaveFilePicker){
+    try{
+      const ext = (filename.split('.').pop() || '').toLowerCase();
+      const opts = { suggestedName: filename };
+      if(ext){
+        opts.types = [{ description: '文件', accept: { [mimeType || 'application/octet-stream']: ['.'+ext] } }];
+      }
+      const handle = await window.showSaveFilePicker(opts);
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    }catch(err){
+      if(err && err.name === 'AbortError') return false; // 用户取消
+      // 其它异常（如非安全上下文、无 transient activation）-> 走兜底下载
+    }
+  }
+  triggerDownloadFallback(blob, filename);
+  return true;
+}
+
+function downloadBlob(blob, filename){
+  return saveFileWithPicker(blob, filename, blob.type || 'application/octet-stream');
 }
 async function exportWordsToWord(words, title){
   if(!words.length){ showToast('没有单词可导出'); return; }
@@ -4209,15 +4238,13 @@ async function exportBackup(){
   };
   const json = JSON.stringify(backup);
   const blob = new Blob([json], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
   const dateStr = new Date().toISOString().slice(0,10);
-  a.href = url;
-  a.download = `单词本备份_${dateStr}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const filename = `单词本备份_${dateStr}.json`;
+  const ok = await saveFileWithPicker(blob, filename, 'application/json');
+  if(ok === false){
+    showToast('已取消导出');
+    return;
+  }
   showToast('备份已导出！');
 }
 document.getElementById('backup-file-input').addEventListener('change', async (e)=>{
