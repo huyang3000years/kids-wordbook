@@ -55,7 +55,7 @@ body{
 .article-fav-btn{font-size:24px;line-height:1;padding:6px 12px}
 .back-bar .article-fav-btn{font-size:30px;line-height:42px;text-align:center;padding:0;display:block}
 .back-bar .article-fav-btn .star-empty{font-size:27px;line-height:42px;vertical-align:middle}
-.back-bar .btn{aspect-ratio:1;width:42px;height:42px;padding:0;font-size:20px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.article-reader-bar .btn, .story-view-bar .btn{aspect-ratio:1;width:42px;height:42px;padding:0;font-size:20px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .btn-block{width:100%}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap}
 .btn-row .btn{flex:1;min-width:0}
@@ -450,6 +450,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .word-fav.on{color:#FFC107;opacity:1}
 .word-fav:active{transform:scale(.82)}
 .btn-fav-word{background:linear-gradient(135deg,#FFD93D,#FFE680);color:#7a5b00}
+
+.article-word-label .label-option{font-size:28px;padding:16px 8px;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body>
@@ -3185,10 +3187,10 @@ function renderStoryView(){
   const story = state.storyViewStory;
   if(!story || !state.storyViewImages.length){
     document.getElementById('page-story-view').innerHTML = `
-      <div class="back-bar">
+      <div class="back-bar story-view-bar">
         <button class="back-btn" onclick="storyBack()">←</button>
         <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
-        ${story ? `<button class="btn btn-small btn-white" title="收藏" onclick="toggleStoryFavorite('${story.id}')">${story.favorite?'⭐':'☆'}</button>` : ''}
+        ${story ? `<button class="btn btn-small btn-white article-fav-btn" title="收藏" onclick="toggleStoryFavorite('${story.id}')">${story.favorite?'⭐':'<span class="star-empty">☆</span>'}</button>` : ''}
       </div>
       <div class="empty-state"><div class="emoji">🖼️</div><p>这个故事没有图片</p></div>`;
     return;
@@ -3197,12 +3199,12 @@ function renderStoryView(){
   state.storyViewIndex = index;
   const page = story.pages.find(p=>p.id===state.storyViewImages[index].id) || {prompt:''};
   document.getElementById('page-story-view').innerHTML = `
-    <div class="back-bar">
+    <div class="back-bar story-view-bar">
       <button class="back-btn" onclick="storyBack()">←</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportStoryWord('${story.id}')">📤</button>
       <button class="btn btn-small btn-white" title="编辑故事" onclick="startStoryEditById('${story.id}')">✏️</button>
-      <button class="btn btn-small btn-white" title="收藏" onclick="toggleStoryFavorite('${story.id}')">${story.favorite?'⭐':'☆'}</button>
+      <button class="btn btn-small btn-white article-fav-btn" title="收藏" onclick="toggleStoryFavorite('${story.id}')">${story.favorite?'⭐':'<span class="star-empty">☆</span>'}</button>
       <button class="btn btn-small btn-red" title="删除故事" onclick="deleteStory('${story.id}')">🗑️</button>
     </div>
     <div class="story-view-header">
@@ -3922,7 +3924,7 @@ function renderArticleView(){
   const article = state.articleViewArticle;
   if(!article){
     document.getElementById('page-article-view').innerHTML = `
-      <div class="back-bar">
+      <div class="back-bar article-reader-bar">
         <button class="back-btn" onclick="articleBack()">←</button>
       </div>
       <div class="empty-state"><div class="emoji">📖</div><p>文章不存在</p></div>`;
@@ -3940,7 +3942,7 @@ function renderArticleView(){
     }
   });
   document.getElementById('page-article-view').innerHTML = `
-    <div class="back-bar">
+    <div class="back-bar article-reader-bar">
       <button class="back-btn" onclick="articleBack()">←</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white article-fav-btn" title="收藏" onclick="toggleArticleFavorite('${article.id}')">${article.favorite?'⭐':'<span class="star-empty">☆</span>'}</button>
@@ -4107,9 +4109,9 @@ async function showArticleWordView(wordId){
       <div class="article-word-chinese">${escapeHtml(w.chinese||'（无备注）')}</div>
       <div class="article-word-label">
         <div class="label-selector" id="aw-label-selector">
-          <div class="label-option red ${w.label==='red'?'active':''}" onclick="setArticleWordLabel('${w.id}','red')">🔴 不会</div>
-          <div class="label-option yellow ${w.label==='yellow'?'active':''}" onclick="setArticleWordLabel('${w.id}','yellow')">🟡 想一想</div>
-          <div class="label-option green ${w.label==='green'?'active':''}" onclick="setArticleWordLabel('${w.id}','green')">🟢 会</div>
+          <div class="label-option red ${w.label==='red'?'active':''}" onclick="setArticleWordLabel('${w.id}','red')">🔴</div>
+          <div class="label-option yellow ${w.label==='yellow'?'active':''}" onclick="setArticleWordLabel('${w.id}','yellow')">🟡</div>
+          <div class="label-option green ${w.label==='green'?'active':''}" onclick="setArticleWordLabel('${w.id}','green')">🟢</div>
         </div>
       </div>
       ${imgsHTML}
