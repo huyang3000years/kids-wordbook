@@ -54,6 +54,7 @@ body{
 .btn-small{padding:8px 14px;font-size:16px;min-height:40px;border-radius:10px}
 .article-fav-btn{font-size:24px;line-height:1;padding:6px 12px}
 .back-bar .article-fav-btn{font-size:30px;line-height:42px;text-align:center;padding:0;display:block}
+.back-bar .article-fav-btn .star-empty{font-size:36px;line-height:42px;vertical-align:middle}
 .back-bar .btn{aspect-ratio:1;width:42px;height:42px;padding:0;font-size:20px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .btn-block{width:100%}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap}
@@ -3942,7 +3943,7 @@ function renderArticleView(){
     <div class="back-bar">
       <button class="back-btn" onclick="articleBack()">←</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
-      <button class="btn btn-small btn-white article-fav-btn" title="收藏" onclick="toggleArticleFavorite('${article.id}')">${article.favorite?'⭐':'☆'}</button>
+      <button class="btn btn-small btn-white article-fav-btn" title="收藏" onclick="toggleArticleFavorite('${article.id}')">${article.favorite?'⭐':'<span class="star-empty">☆</span>'}</button>
       <button class="btn btn-small btn-white" title="打开文章链接" onclick="openArticleLink()">🔗</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportArticleWord('${article.id}')">📤</button>
       <button class="btn btn-small btn-white" title="编辑文章" onclick="startArticleEditById('${article.id}')">✏️</button>
