@@ -3906,7 +3906,11 @@ async function toggleArticleFavorite(articleId){
 }
 function openArticleLink(){
   const a = state.articleViewArticle;
-  if(!a || !a.link) return;
+  if(!a) return;
+  if(!a.link || !a.link.trim()){
+    showToast('该文章还没有设置链接，请到编辑页添加');
+    return;
+  }
   let url = a.link.trim();
   if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
   window.open(url, '_blank');
@@ -3937,7 +3941,7 @@ function renderArticleView(){
       <button class="back-btn" onclick="articleBack()">←</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white article-fav-btn" title="收藏" onclick="toggleArticleFavorite('${article.id}')">${article.favorite?'⭐':'☆'}</button>
-      ${article.link ? `<button class="btn btn-small btn-white" title="打开文章链接" onclick="openArticleLink()">🔗</button>` : ''}
+      <button class="btn btn-small btn-white" title="打开文章链接" onclick="openArticleLink()">🔗</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportArticleWord('${article.id}')">📤</button>
       <button class="btn btn-small btn-white" title="编辑文章" onclick="startArticleEditById('${article.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除文章" onclick="deleteArticle('${article.id}')">🗑️</button>
