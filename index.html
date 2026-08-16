@@ -3582,6 +3582,7 @@ async function startArticleEdit(preLib, preGroup){
   state.editingArticleOldBlockIds = [];
   renderArticleEdit();
   showPage('page-article-edit');
+  autoResizeAllArticleText();
 }
 async function startArticleEditById(articleId){
   const article = state.articles.find(a=>a.id===articleId);
@@ -3606,6 +3607,7 @@ async function startArticleEditById(articleId){
   state.editingArticleOldBlockIds = article.blocks.filter(b=>b.type==='image').map(b=>b.id);
   renderArticleEdit();
   showPage('page-article-edit');
+  autoResizeAllArticleText();
 }
 function renderArticleEdit(){
   const ea = state.editingArticle;
