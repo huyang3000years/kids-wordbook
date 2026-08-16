@@ -57,6 +57,7 @@ body{
 .back-bar .article-fav-btn .star-empty{font-size:27px;line-height:42px;vertical-align:middle}
 .article-reader-bar .btn, .story-view-bar .btn{aspect-ratio:1;width:42px;height:42px;padding:0;font-size:20px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .btn-block{width:100%}
+.btn .bi{font-size:20px;line-height:1;vertical-align:middle}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap}
 .btn-row .btn{flex:1;min-width:0}
 /* Cards */
@@ -411,7 +412,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-add-row{display:flex;gap:10px;margin-bottom:12px}
 .article-add-row .btn{flex:1}
 .article-text-content{font-size:18px;line-height:1.8;color:var(--text);white-space:pre-wrap;word-break:break-word;padding:14px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px}
-.article-text-content .aw{cursor:pointer;border-radius:4px;padding:1px 2px;transition:background .15s;display:inline-block}
+.article-text-content .aw{cursor:pointer;border-radius:4px;padding:1px 2px;transition:background .15s;display:inline-block;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .article-text-content .aw:hover{background:#E8F8FD}
 .article-text-content .aw.found.aw-red{color:#E53935;font-weight:700}
 .article-text-content .aw.found.aw-yellow{color:#E6A800;font-weight:700}
@@ -419,7 +420,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-img-content{width:100%;border-radius:var(--radius);display:block;margin-bottom:14px;box-shadow:var(--shadow)}
 .article-view-title{font-size:26px;font-weight:800;color:#000;text-align:center;margin-bottom:16px}
 .article-font-controls{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px}
-.article-font-controls .font-btn{min-width:52px;padding:8px 14px;font-size:18px;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:var(--primary);color:#fff;box-shadow:var(--shadow)}
+.article-font-controls .font-btn{min-width:52px;padding:8px 14px;font-size:20px;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:var(--primary);color:#fff;box-shadow:var(--shadow)}
 .article-font-controls .font-btn:active{transform:scale(.94)}
 .article-word-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px;text-align:center}
 .article-word-english{font-size:32px;font-weight:700;color:var(--primary);margin-bottom:8px}
@@ -1197,14 +1198,14 @@ function renderWordLibHome(){
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">📁 我的词库</div>
     </div>
-    <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord()">➕ 添加单词</button>
-    <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="navigateAllWords(null, 'wordlib')">📖 全部单词 (${total})</button>
-    <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteWords()">⭐ 我的收藏 (${favWordCount})</button>
+    <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="startNewWord()"><span class="bi">➕</span> 添加单词</button>
+    <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="navigateAllWords(null, 'wordlib')"><span class="bi">📖</span> 全部单词 (${total})</button>
+    <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteWords()"><span class="bi">⭐</span> 我的收藏 (${favWordCount})</button>
     <div class="section-title">📁 我的词库 ${sortChip}</div>
     ${hiddenLibs.length>0 ? `
       <button class="btn btn-blue btn-block" style="margin-bottom:12px" onclick="toggleShowHiddenLibs()">${showHidden?'🙈 收起隐藏词库':'👁️ 显示隐藏词库 ('+hiddenLibs.length+')'}</button>
     ` : ''}
-    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createLibrary()">➕ 新建词库</button>
+    <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createLibrary()"><span class="bi">➕</span> 新建词库</button>
     ${libHTML}
   `;
 }
@@ -2681,9 +2682,28 @@ function showAllStories(){
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
     </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <input type="text" class="form-input" id="story-search-input" placeholder="🔍 搜索故事标题..." autocomplete="off" oninput="searchStories(this.value)">
+    </div>
     <div id="all-story-list"></div>
   `;
   renderStoryCards('all-story-list', state.stories.slice().reverse());
+}
+function searchStories(query){
+  const list = document.getElementById('all-story-list');
+  if(!list) return;
+  const q = (query||'').trim().toLowerCase();
+  const all = state.stories.slice().reverse();
+  if(!q){
+    renderStoryCards('all-story-list', all);
+    return;
+  }
+  const filtered = all.filter(s => (s.title||'').toLowerCase().includes(q));
+  if(filtered.length === 0){
+    list.innerHTML = `<div class="empty-state"><div class="emoji">🔍</div><p>没有找到标题包含「${escapeHtml(q)}」的故事</p></div>`;
+  } else {
+    renderStoryCards('all-story-list', filtered);
+  }
 }
 function showFavoriteStories(){
   renderStoryHome();
@@ -3214,8 +3234,8 @@ function renderStoryView(){
     <img class="story-view-image" src="${state.storyViewImages[index].data}" alt="" onclick="showImageFullscreen('${state.storyViewImages[index].data}')">
     ${(page.prompt && page.prompt.trim()) ? `<div class="story-view-prompt">${escapeHtml(page.prompt)}</div>` : ''}
     <div class="story-view-nav">
-      <button class="btn btn-gray" onclick="storyViewPrev()" ${index===0?'disabled style="opacity:.5"':''}>⬅️ 上一张</button>
-      <button class="btn btn-primary" onclick="storyViewNext()" ${index>=state.storyViewImages.length-1?'disabled style="opacity:.5"':''}>下一张 ➡️</button>
+      <button class="btn btn-gray" onclick="storyViewPrev()" ${index===0?'disabled style="opacity:.5"':''}><span class="bi">⬅️</span> 上一张</button>
+      <button class="btn btn-primary" onclick="storyViewNext()" ${index>=state.storyViewImages.length-1?'disabled style="opacity:.5"':''}>下一张 <span class="bi">➡️</span></button>
     </div>
     <div class="story-view-start-hint" style="margin-top:14px">👦👧 看着图片，把故事讲出来吧！</div>
   `;
@@ -3957,7 +3977,7 @@ function renderArticleView(){
       <button class="font-btn" title="放大字体" onclick="articleFontZoom(2)">A＋</button>
     </div>
     ${bodyHTML || '<div class="empty-state"><div class="emoji">📖</div><p>这篇文章没有内容</p></div>'}
-    <div class="story-view-start-hint" style="margin-top:14px">📖 长按蓝色单词可跳转到词库</div>
+    <div class="story-view-start-hint" style="margin-top:14px">📖 长按蓝色单词 2 秒可跳转到词库</div>
   `;
   // 绑定长按事件
   setupArticleWordLongPress();
@@ -3981,6 +4001,10 @@ function articleWordLabelClass(w){
   if(w.label === 'green') return ' aw-green';
   return '';
 }
+function awSpan(cls, word, text){
+  const w = escapeHtml(word);
+  return `<span class="${cls}" data-word="${w}" ontouchstart="articleWordPress('${w}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" ontouchcancel="articleWordRelease()" onmousedown="articleWordMouseDown('${w}')" onmouseup="articleWordRelease()" onmouseleave="articleWordRelease()" oncontextmenu="return false">${escapeHtml(text)}</span>`;
+}
 function renderArticleText(text){
   // 将文本按空格/标点分词，匹配词库的英文单词
   const words = state.words;
@@ -4000,7 +4024,7 @@ function renderArticleText(text){
     const clean = part.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
     if(clean && wordSet[clean]){
       const cls = 'aw found' + articleWordLabelClass(wordSet[clean]);
-      html += `<span class="${cls}" data-word="${escapeHtml(clean)}" ontouchstart="articleWordPress('${escapeHtml(clean)}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" onmousedown="articleWordMouseDown('${escapeHtml(clean)}')">${escapeHtml(part)}</span>`;
+      html += awSpan(cls, clean, part);
     } else {
       // 尝试去掉首尾标点后匹配
       const m = part.match(/^([^a-zA-Z]*)([a-zA-Z'-]+)([^a-zA-Z]*)$/);
@@ -4008,9 +4032,9 @@ function renderArticleText(text){
         const c = m[2].toLowerCase();
         if(wordSet[c]){
           const cls = 'aw found' + articleWordLabelClass(wordSet[c]);
-          html += escapeHtml(m[1]) + `<span class="${cls}" data-word="${escapeHtml(c)}" ontouchstart="articleWordPress('${escapeHtml(c)}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" onmousedown="articleWordMouseDown('${escapeHtml(c)}')">${escapeHtml(m[2])}</span>` + escapeHtml(m[3]);
+          html += escapeHtml(m[1]) + awSpan(cls, c, m[2]) + escapeHtml(m[3]);
         } else {
-          html += `<span class="aw" data-word="${escapeHtml(c)}" ontouchstart="articleWordPress('${escapeHtml(c)}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" onmousedown="articleWordMouseDown('${escapeHtml(c)}')">${escapeHtml(part)}</span>`;
+          html += awSpan('aw', c, part);
         }
       } else {
         html += escapeHtml(part);
@@ -4028,24 +4052,24 @@ function articleWordPress(word){
     if(_articleWordTarget) jumpToWord(_articleWordTarget);
     _articleWordTimer = null;
     _articleWordTarget = null;
-  }, 500);
+  }, 2000);
 }
 function articleWordRelease(){
   if(_articleWordTimer){ clearTimeout(_articleWordTimer); _articleWordTimer = null; }
   _articleWordTarget = null;
 }
 function articleWordMouseDown(word){
-  // 桌面端：不使用长按，直接点击跳转
-  // 防止触摸时重复触发
+  // 桌面端：按下开始计时，长按 2 秒才跳转（触摸端由 ontouchstart 触发，逻辑相同）
+  articleWordRelease();
+  _articleWordTarget = word;
+  _articleWordTimer = setTimeout(()=>{
+    if(_articleWordTarget) jumpToWord(_articleWordTarget);
+    _articleWordTimer = null;
+    _articleWordTarget = null;
+  }, 2000);
 }
 function setupArticleWordLongPress(){
-  // 桌面端点击单词：命中词库则查看详情，未命中则添加单词
-  document.querySelectorAll('#page-article-view .aw').forEach(el=>{
-    el.addEventListener('click', function(){
-      const word = this.getAttribute('data-word');
-      if(word) jumpToWord(word);
-    });
-  });
+  // 单词跳转已改为「长按 2 秒」触发（触摸与鼠标都走计时器），无需再绑定 click 即时跳转
 }
 function jumpToWord(word){
   const w = state.words.find(x=>x.english.toLowerCase()===word.toLowerCase());
