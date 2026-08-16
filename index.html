@@ -406,7 +406,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-block.dragging{opacity:.85;box-shadow:0 10px 24px rgba(0,0,0,.3);cursor:grabbing;z-index:1000}
 .article-block-handle:active{cursor:grabbing}
 .article-block-num{font-size:13px;color:var(--text-l);margin-bottom:6px}
-.article-block-text{width:100%;min-height:80px;border:1px solid #E0E0E0;border-radius:10px;padding:10px;font-size:16px;font-family:inherit;resize:vertical;line-height:1.6}
+.article-block-text{width:100%;min-height:80px;border:1px solid #E0E0E0;border-radius:10px;padding:10px;font-size:16px;font-family:inherit;resize:none;overflow:hidden;line-height:1.6;box-sizing:border-box}
 .article-block-img{width:100%;border-radius:10px;display:block;cursor:pointer}
 .article-block-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1}
 .article-add-row{display:flex;gap:10px;margin-bottom:12px}
@@ -3647,7 +3647,7 @@ function renderArticleBlocks(){
           <div class="article-block-handle" onpointerdown="articleBlockPointerDown(event, ${i})">⠿</div>
           <div class="article-block-num" style="margin-left:28px">文字段落 ${i+1}</div>
           <button class="article-block-remove" onclick="removeArticleBlock(${i})">✕</button>
-          <textarea class="article-block-text" placeholder="输入文字内容..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="state.editingArticle.blocks[${i}].content=this.value">${escapeHtml(b.content||'')}</textarea>
+          <textarea class="article-block-text" placeholder="输入文字内容..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="state.editingArticle.blocks[${i}].content=this.value;autoResizeArticleText(this)" onpaste="setTimeout(()=>autoResizeArticleText(this),0)" oncut="setTimeout(()=>autoResizeArticleText(this),0)">${escapeHtml(b.content||'')}</textarea>
         </div>`;
     } else if(b.type === 'image'){
       html += `
@@ -3660,6 +3660,15 @@ function renderArticleBlocks(){
     }
   });
   document.getElementById('article-blocks-container').innerHTML = html || '<div style="color:var(--text-l);text-align:center;padding:20px">还没有内容，点击下方按钮添加文字或图片</div>';
+  autoResizeAllArticleText();
+}
+function autoResizeArticleText(el){
+  if(!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+function autoResizeAllArticleText(){
+  document.querySelectorAll('#article-blocks-container .article-block-text').forEach(el=>autoResizeArticleText(el));
 }
 function addArticleTextBlock(){
   const ea = state.editingArticle;
