@@ -3977,10 +3977,10 @@ function renderArticleView(){
       <button class="font-btn" title="放大字体" onclick="articleFontZoom(2)">A＋</button>
     </div>
     ${bodyHTML || '<div class="empty-state"><div class="emoji">📖</div><p>这篇文章没有内容</p></div>'}
-    <div class="story-view-start-hint" style="margin-top:14px">📖 长按蓝色单词 2 秒可跳转到词库</div>
+    <div class="story-view-start-hint" style="margin-top:14px">📖 双击蓝色单词可跳转到词库</div>
   `;
-  // 绑定长按事件
-  setupArticleWordLongPress();
+  // 绑定双击/双触事件
+  setupArticleWordTap();
   applyArticleFontSize();
 }
 function applyArticleFontSize(){
@@ -4003,7 +4003,7 @@ function articleWordLabelClass(w){
 }
 function awSpan(cls, word, text){
   const w = escapeHtml(word);
-  return `<span class="${cls}" data-word="${w}" ontouchstart="articleWordPress('${w}')" ontouchend="articleWordRelease()" ontouchmove="articleWordRelease()" ontouchcancel="articleWordRelease()" onmousedown="articleWordMouseDown('${w}')" onmouseup="articleWordRelease()" onmouseleave="articleWordRelease()" oncontextmenu="return false">${escapeHtml(text)}</span>`;
+  return `<span class="${cls}" data-word="${w}" onclick="articleWordTap('${w}')" oncontextmenu="return false">${escapeHtml(text)}</span>`;
 }
 function renderArticleText(text){
   // 将文本按空格/标点分词，匹配词库的英文单词
@@ -4043,33 +4043,22 @@ function renderArticleText(text){
   }
   return html;
 }
-let _articleWordTimer = null;
-let _articleWordTarget = null;
-function articleWordPress(word){
-  articleWordRelease();
-  _articleWordTarget = word;
-  _articleWordTimer = setTimeout(()=>{
-    if(_articleWordTarget) jumpToWord(_articleWordTarget);
-    _articleWordTimer = null;
-    _articleWordTarget = null;
-  }, 2000);
+let _lastWordTapTime = 0;
+let _lastWordTapWord = null;
+function articleWordTap(word){
+  // 双击（桌面）或双触（移动端）单词才跳转，避免误触
+  const now = Date.now();
+  if(_lastWordTapWord === word && (now - _lastWordTapTime) < 400){
+    _lastWordTapWord = null;
+    _lastWordTapTime = 0;
+    jumpToWord(word);
+  } else {
+    _lastWordTapWord = word;
+    _lastWordTapTime = now;
+  }
 }
-function articleWordRelease(){
-  if(_articleWordTimer){ clearTimeout(_articleWordTimer); _articleWordTimer = null; }
-  _articleWordTarget = null;
-}
-function articleWordMouseDown(word){
-  // 桌面端：按下开始计时，长按 2 秒才跳转（触摸端由 ontouchstart 触发，逻辑相同）
-  articleWordRelease();
-  _articleWordTarget = word;
-  _articleWordTimer = setTimeout(()=>{
-    if(_articleWordTarget) jumpToWord(_articleWordTarget);
-    _articleWordTimer = null;
-    _articleWordTarget = null;
-  }, 2000);
-}
-function setupArticleWordLongPress(){
-  // 单词跳转已改为「长按 2 秒」触发（触摸与鼠标都走计时器），无需再绑定 click 即时跳转
+function setupArticleWordTap(){
+  // 单词跳转已改为「双击 / 双触」触发，逻辑在 awSpan 的 onclick 中处理，无需额外绑定
 }
 function jumpToWord(word){
   const w = state.words.find(x=>x.english.toLowerCase()===word.toLowerCase());
