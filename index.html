@@ -447,12 +447,6 @@ textarea.form-input{resize:vertical;min-height:60px}
 .word-fav.on{color:#FFC107;opacity:1}
 .word-fav:active{transform:scale(.82)}
 .btn-fav-word{background:linear-gradient(135deg,#FFD93D,#FFE680);color:#7a5b00}
-
-/* 顶部操作栏：正方形图标按钮，一行可排 8 个 */
-.top-actions{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
-.top-actions .btn{aspect-ratio:1;width:100%;min-height:0;padding:0;font-size:22px;border-radius:14px;white-space:nowrap;overflow:hidden}
-.back-bar .btn{aspect-ratio:1;width:36px;height:36px;min-height:0;padding:0;font-size:19px;border-radius:12px}
-.back-bar{gap:6px}
 </style>
 </head>
 <body>
@@ -1133,9 +1127,9 @@ function renderHome(){
         <div class="stat-box yellow clickable" onclick="showMarkedWords('yellow')" title="查看所有想想的单词"><div class="stat-num">${yellowCount}</div><div class="stat-label">🟡 想想</div></div>
         <div class="stat-box green"><div class="stat-num">${greenCount}</div><div class="stat-label">🟢 会</div></div>
       </div>
-      <div class="btn-row top-actions">
-        <button class="btn btn-primary btn-large" onclick="startNewWord()" title="添加单词">➕</button>
-        <button class="btn btn-green btn-large" onclick="navigateReviewSelect()" title="乱序复习">🔀</button>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-large" onclick="startNewWord()">➕ 添加单词</button>
+        <button class="btn btn-green btn-large" onclick="navigateReviewSelect()">🔀 乱序复习</button>
       </div>
     </div>
 
@@ -1143,9 +1137,9 @@ function renderHome(){
     <button class="btn btn-block home-entry home-entry-story" onclick="navigateStoryHome()">🎨 看图说话 (${state.stories.length})</button>
     <button class="btn btn-block home-entry home-entry-article" onclick="navigateArticleHome()">📖 文章阅读 (${state.articles.length})</button>
 
-    <div class="btn-row top-actions" style="margin-top:6px;margin-bottom:20px">
-      <button class="btn btn-blue" onclick="exportBackup()" title="导出备份">💾</button>
-      <button class="btn btn-blue" onclick="document.getElementById('backup-file-input').click()" title="导入备份">📂</button>
+    <div class="btn-row" style="margin-top:6px;margin-bottom:20px">
+      <button class="btn btn-blue" onclick="exportBackup()">💾 导出备份</button>
+      <button class="btn btn-blue" onclick="document.getElementById('backup-file-input').click()">📂 导入备份</button>
     </div>
   `;
 }
@@ -2657,8 +2651,8 @@ function renderStoryHome(){
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">🎨 看图说话</div>
     </div>
-    <div class="btn-row top-actions" style="margin-bottom:12px">
-      <button class="btn btn-green btn-large" onclick="startStoryEdit(null)" title="新建故事">➕</button>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
     </div>
     <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="showAllStories()">📖 全部故事 (${state.stories.length})</button>
     <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteStories()">⭐ 我的收藏 (${favStoryCount})</button>
@@ -2679,8 +2673,8 @@ function showAllStories(){
       <div class="back-title">📖 全部故事</div>
       <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
     </div>
-    <div class="btn-row top-actions" style="margin-bottom:12px">
-      <button class="btn btn-green btn-large" onclick="startStoryEdit(null)" title="新建故事">➕</button>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
     </div>
     <div id="all-story-list"></div>
   `;
@@ -2752,9 +2746,9 @@ function renderStoryLib(){
       <button class="btn btn-small btn-white" title="重命名" onclick="renameStoryLib('${lib.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除故事库" onclick="deleteStoryLib('${lib.id}')">🗑️</button>
     </div>
-    <div class="btn-row top-actions" style="margin-bottom:12px">
-      <button class="btn btn-blue" onclick="createStoryGroup('${lib.id}')" title="新建分组">➕</button>
-      <button class="btn btn-green" onclick="startStoryEdit('${lib.id}')" title="新建故事">➕</button>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-blue" onclick="createStoryGroup('${lib.id}')">➕ 新建分组</button>
+      <button class="btn btn-green" onclick="startStoryEdit('${lib.id}')">➕ 新建故事</button>
     </div>
     <div class="section-title">🗂️ ${escapeHtml(lib.name)}（共 ${libStoryCount} 个故事）</div>
     ${groupsHTML}
@@ -3299,8 +3293,8 @@ function renderArticleHome(){
       <button class="back-btn" onclick="navigateHome()">←</button>
       <div class="back-title">📖 文章阅读</div>
     </div>
-    <div class="btn-row top-actions" style="margin-bottom:12px">
-      <button class="btn btn-green btn-large" onclick="startArticleEdit(null)" title="新建文章">➕</button>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-green btn-large" onclick="startArticleEdit(null)">➕ 新建文章</button>
     </div>
     <button class="btn btn-orange btn-block" style="margin-bottom:12px" onclick="showAllArticles()">📖 全部文章 (${state.articles.length})</button>
     <button class="btn btn-fav-word btn-block" style="margin-bottom:16px" onclick="showFavoriteArticles()">⭐ 我的收藏 (${favCount})</button>
@@ -3320,8 +3314,8 @@ function showAllArticles(){
       <div class="back-title">📖 全部文章</div>
       <button class="btn btn-small btn-white" onclick="navigateHome()">🏠</button>
     </div>
-    <div class="btn-row top-actions" style="margin-bottom:12px">
-      <button class="btn btn-green btn-large" onclick="startArticleEdit(null)" title="新建文章">➕</button>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-green btn-large" onclick="startArticleEdit(null)">➕ 新建文章</button>
     </div>
     <div id="all-article-list"></div>
   `;
@@ -3386,9 +3380,9 @@ function renderArticleLib(){
       <button class="btn btn-small btn-white" title="重命名" onclick="renameArticleLib('${lib.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除文章库" onclick="deleteArticleLib('${lib.id}')">🗑️</button>
     </div>
-    <div class="btn-row top-actions" style="margin-bottom:12px">
-      <button class="btn btn-blue" onclick="createArticleGroup('${lib.id}')" title="新建分组">➕</button>
-      <button class="btn btn-green" onclick="startArticleEdit('${lib.id}')" title="新建文章">➕</button>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn btn-blue" onclick="createArticleGroup('${lib.id}')">➕ 新建分组</button>
+      <button class="btn btn-green" onclick="startArticleEdit('${lib.id}')">➕ 新建文章</button>
     </div>
     <div class="section-title">📚 ${escapeHtml(lib.name)}（共 ${libCount} 篇文章）</div>
     ${groupsHTML}
