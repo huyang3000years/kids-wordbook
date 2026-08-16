@@ -52,6 +52,7 @@ body{
 .btn-white{background:#fff;color:var(--text);border:2px solid #E0E0E0}
 .btn-large{padding:18px 28px;font-size:22px;min-height:60px;width:100%}
 .btn-small{padding:8px 14px;font-size:16px;min-height:40px;border-radius:10px}
+.article-fav-btn{font-size:24px;line-height:1;padding:6px 12px}
 .btn-block{width:100%}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap}
 .btn-row .btn{flex:1;min-width:0}
@@ -3545,6 +3546,7 @@ async function startArticleEdit(preLib, preGroup){
   const article = {
     id: genId('article'),
     title: '',
+    link: '',
     placements: [],
     blocks: []
   };
@@ -3566,6 +3568,7 @@ async function startArticleEditById(articleId){
   state.editingArticle = {
     id: article.id,
     title: article.title,
+    link: article.link || '',
     placements: article.placements.map(p=>({...p})),
     blocks: article.blocks.map(b=>{
       if(b.type==='image'){
@@ -3590,6 +3593,10 @@ function renderArticleEdit(){
     <div class="form-group">
       <label class="form-label">📝 文章标题</label>
       <input type="text" class="form-input" id="article-title-input" value="${escapeHtml(ea.title)}" placeholder="输入文章标题..." autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">🔗 文章链接</label>
+      <input type="text" class="form-input" id="article-link-input" value="${escapeHtml(ea.link||'')}" placeholder="输入文章的外链接，例如 https://..." autocomplete="off">
     </div>
     <div class="form-group" id="article-placement-form-group"></div>
     <div class="form-group">
@@ -3803,6 +3810,9 @@ async function saveArticle(){
     // 通过序号找到对应块
   });
   ea.title = title;
+  const linkInput = document.getElementById('article-link-input');
+  const link = linkInput ? linkInput.value.trim() : '';
+  ea.link = link;
   // 保存图片到 IndexedDB
   try{
     for(let i=0; i<ea.blocks.length; i++){
@@ -3819,6 +3829,7 @@ async function saveArticle(){
   const articleData = {
     id: ea.id,
     title: ea.title,
+    link: link,
     placements: ea.placements,
     blocks: ea.blocks.map(b=> b.type==='text' ? {id:b.id, type:'text', content:b.content||''} : {id:b.id, type:'image'})
   };
@@ -3893,6 +3904,13 @@ async function toggleArticleFavorite(articleId){
   renderArticleView();
   showToast(article.favorite ? '已加入收藏 ⭐' : '已取消收藏');
 }
+function openArticleLink(){
+  const a = state.articleViewArticle;
+  if(!a || !a.link) return;
+  let url = a.link.trim();
+  if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  window.open(url, '_blank');
+}
 function renderArticleView(){
   const article = state.articleViewArticle;
   if(!article){
@@ -3918,7 +3936,8 @@ function renderArticleView(){
     <div class="back-bar">
       <button class="back-btn" onclick="articleBack()">←</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
-      <button class="btn btn-small btn-white" title="收藏" onclick="toggleArticleFavorite('${article.id}')">${article.favorite?'⭐':'☆'}</button>
+      <button class="btn btn-small btn-white article-fav-btn" title="收藏" onclick="toggleArticleFavorite('${article.id}')">${article.favorite?'⭐':'☆'}</button>
+      ${article.link ? `<button class="btn btn-small btn-white" title="打开文章链接" onclick="openArticleLink()">🔗</button>` : ''}
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportArticleWord('${article.id}')">📤</button>
       <button class="btn btn-small btn-white" title="编辑文章" onclick="startArticleEditById('${article.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除文章" onclick="deleteArticle('${article.id}')">🗑️</button>
