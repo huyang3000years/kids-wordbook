@@ -349,6 +349,9 @@ textarea.form-input{resize:vertical;min-height:60px}
 .story-name{font-size:22px;font-weight:700;color:var(--primary)}
 .story-meta{font-size:14px;color:var(--text-l)}
 .story-page-btn{font-size:18px;padding:10px 14px}
+.article-mark-badges{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex-shrink:0;padding:0 4px}
+.mark-badge{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:var(--text);white-space:nowrap}
+.mark-emoji{font-size:15px;line-height:1}
 /* 故事编辑页：每张图片一页 */
 .story-page-edit{
   background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:14px;
@@ -3568,15 +3571,40 @@ async function deleteArticleGroup(libId, groupId){
 }
 
 /* ===== 文章卡片 ===== */
+function getArticleMarkCounts(article){
+  // 统计该文章文字内容中，被标记为红色(不会)/黄色(想一想)的单词数（按单词去重）
+  const labelOf = {};
+  for(const w of state.words){ labelOf[w.english.toLowerCase()] = w.label; }
+  const seen = new Set();
+  let red = 0, yellow = 0;
+  for(const b of (article.blocks||[])){
+    if(b.type !== 'text' || !b.content) continue;
+    const tokens = b.content.match(/[a-zA-Z'-]+/g) || [];
+    for(const t of tokens){
+      const k = t.toLowerCase();
+      if(seen.has(k)) continue;
+      seen.add(k);
+      const lbl = labelOf[k];
+      if(lbl === 'red') red++;
+      else if(lbl === 'yellow') yellow++;
+    }
+  }
+  return {red, yellow};
+}
 function renderArticleCard(article){
   const imgCount = article.blocks.filter(b=>b.type==='image').length;
   const textCount = article.blocks.filter(b=>b.type==='text').length;
+  const mk = getArticleMarkCounts(article);
   return `
     <div class="story-card" onclick="navigateArticleView('${article.id}')">
       <div class="story-cover" id="article-cover-${article.id}">📖</div>
       <div class="story-info">
         <div class="story-name">${escapeHtml(article.title)}</div>
         <div class="story-meta">${textCount} 段文字 · ${imgCount} 张图片</div>
+      </div>
+      <div class="article-mark-badges">
+        <div class="mark-badge"><span class="mark-emoji">🔴</span><span class="mark-num">${mk.red}</span></div>
+        <div class="mark-badge"><span class="mark-emoji">🟡</span><span class="mark-num">${mk.yellow}</span></div>
       </div>
     </div>`;
 }
