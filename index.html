@@ -959,6 +959,20 @@ function toggleLibWordSort(libId){
   saveSortPref(p);
   refreshCurrentPage();
 }
+function toggleArticleItemSort(libId){
+  const p = getSortPref();
+  if(!p.articleItems) p.articleItems = {};
+  p.articleItems[libId] = p.articleItems[libId] === 'name' ? 'default' : 'name';
+  saveSortPref(p);
+  refreshCurrentPage();
+}
+function toggleStoryItemSort(libId){
+  const p = getSortPref();
+  if(!p.storyItems) p.storyItems = {};
+  p.storyItems[libId] = p.storyItems[libId] === 'name' ? 'default' : 'name';
+  saveSortPref(p);
+  refreshCurrentPage();
+}
 
 /* ========== Library Drag Sort ========== */
 let dragLibId = null;
@@ -2737,11 +2751,16 @@ function renderStoryLib(){
   if(!lib){ navigateStoryHome(); return; }
   const libStoryCount = getStoryLibStoryCount(lib.id);
   const ungrouped = state.stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id) && !s.placements.some(p=>p.libraryId===lib.id && p.groupId));
+  const sortPref = getSortPref();
+  let groups = lib.groups;
+  if(sortPref.groups && sortPref.groups[lib.id] === 'name'){
+    groups = sortByText(groups, 'name');
+  }
   let groupsHTML = '';
-  if(lib.groups.length === 0 && ungrouped.length === 0){
+  if(groups.length === 0 && ungrouped.length === 0){
     groupsHTML = `<div class="empty-state"><div class="emoji">📂</div><p>还没有分组</p></div>`;
   } else {
-    groupsHTML = lib.groups.map(g=>{
+    groupsHTML = groups.map(g=>{
       const count = getStoryGroupStoryCount(lib.id, g.id);
       return `
         <div class="group-card" onclick="navigateStoryGroup('${lib.id}','${g.id}')">
@@ -2775,7 +2794,9 @@ function renderStoryLib(){
       <button class="btn btn-blue" onclick="createStoryGroup('${lib.id}')">➕ 新建分组</button>
       <button class="btn btn-green" onclick="startStoryEdit('${lib.id}')">➕ 新建故事</button>
     </div>
-    <div class="section-title">🗂️ ${escapeHtml(lib.name)}（共 ${libStoryCount} 个故事）</div>
+    <div class="section-title">🗂️ ${escapeHtml(lib.name)}（共 ${libStoryCount} 个故事）
+      <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
+    </div>
     ${groupsHTML}
   `;
 }
@@ -2802,6 +2823,10 @@ function renderStoryGroup(){
     stories = state.stories.filter(s=>s.placements.some(p=>p.libraryId===lib.id && p.groupId===group.id));
     title = group.name;
   }
+  const sortPref = getSortPref();
+  const listStories = (sortPref.storyItems && sortPref.storyItems[lib.id] === 'name')
+    ? sortByText(stories, 'title')
+    : stories.slice().reverse();
   document.getElementById('page-story-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryLib('${lib.id}')">←</button>
@@ -2809,11 +2834,13 @@ function renderStoryGroup(){
       <button class="btn btn-small btn-white" title="重命名" onclick="renameStoryGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteStoryGroup('${lib.id}','${group.id}')">🗑️</button>` : ''}
     </div>
-    <div class="section-title">📄 ${escapeHtml(title)}</div>
+    <div class="section-title">📄 ${escapeHtml(title)}
+      <button class="sort-chip ${sortPref.storyItems && sortPref.storyItems[lib.id]==='name'?'active':''}" onclick="toggleStoryItemSort('${lib.id}')">${sortPref.storyItems && sortPref.storyItems[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
+    </div>
     <button class="btn btn-green btn-block" style="margin-bottom:16px" onclick="startStoryEdit('${lib.id}','${isDefault ? 'default' : group.id}')">➕ 新建故事到此分组</button>
     <div id="story-group-list"></div>
   `;
-  renderStoryCards('story-group-list', stories.slice().reverse());
+  renderStoryCards('story-group-list', listStories);
 }
 
 /* ===== 故事库/分组管理 ===== */
@@ -3371,11 +3398,16 @@ function renderArticleLib(){
   if(!lib){ navigateArticleHome(); return; }
   const libCount = getArticleLibCount(lib.id);
   const ungrouped = state.articles.filter(a=>a.placements.some(p=>p.libraryId===lib.id) && !a.placements.some(p=>p.libraryId===lib.id && p.groupId));
+  const sortPref = getSortPref();
+  let groups = lib.groups;
+  if(sortPref.groups && sortPref.groups[lib.id] === 'name'){
+    groups = sortByText(groups, 'name');
+  }
   let groupsHTML = '';
-  if(lib.groups.length === 0 && ungrouped.length === 0){
+  if(groups.length === 0 && ungrouped.length === 0){
     groupsHTML = `<div class="empty-state"><div class="emoji">📂</div><p>还没有分组</p></div>`;
   } else {
-    groupsHTML = lib.groups.map(g=>{
+    groupsHTML = groups.map(g=>{
       const count = getArticleGroupCount(lib.id, g.id);
       return `
         <div class="group-card" onclick="navigateArticleGroup('${lib.id}','${g.id}')">
@@ -3409,7 +3441,9 @@ function renderArticleLib(){
       <button class="btn btn-blue" onclick="createArticleGroup('${lib.id}')">➕ 新建分组</button>
       <button class="btn btn-green" onclick="startArticleEdit('${lib.id}')">➕ 新建文章</button>
     </div>
-    <div class="section-title">📚 ${escapeHtml(lib.name)}（共 ${libCount} 篇文章）</div>
+    <div class="section-title">📚 ${escapeHtml(lib.name)}（共 ${libCount} 篇文章）
+      <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
+    </div>
     ${groupsHTML}
   `;
 }
@@ -3436,6 +3470,10 @@ function renderArticleGroup(){
     articles = state.articles.filter(a=>a.placements.some(p=>p.libraryId===lib.id && p.groupId===group.id));
     title = group.name;
   }
+  const sortPref = getSortPref();
+  const listArticles = (sortPref.articleItems && sortPref.articleItems[lib.id] === 'name')
+    ? sortByText(articles, 'title')
+    : articles.slice().reverse();
   document.getElementById('page-article-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateArticleLib('${lib.id}')">←</button>
@@ -3443,11 +3481,13 @@ function renderArticleGroup(){
       <button class="btn btn-small btn-white" title="重命名" onclick="renameArticleGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteArticleGroup('${lib.id}','${group.id}')">🗑️</button>` : ''}
     </div>
-    <div class="section-title">📄 ${escapeHtml(title)}</div>
+    <div class="section-title">📄 ${escapeHtml(title)}
+      <button class="sort-chip ${sortPref.articleItems && sortPref.articleItems[lib.id]==='name'?'active':''}" onclick="toggleArticleItemSort('${lib.id}')">${sortPref.articleItems && sortPref.articleItems[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
+    </div>
     <button class="btn btn-green btn-block" style="margin-bottom:16px" onclick="startArticleEdit('${lib.id}','${isDefault ? 'default' : group.id}')">➕ 新建文章到此分组</button>
     <div id="article-group-list"></div>
   `;
-  renderArticleCards('article-group-list', articles.slice().reverse());
+  renderArticleCards('article-group-list', listArticles);
 }
 
 /* ===== 文章库/分组管理 ===== */
