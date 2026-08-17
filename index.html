@@ -230,6 +230,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .review-label-btn{
   flex:1;padding:16px;border-radius:14px;border:3px solid #E0E0E0;
   font-size:20px;font-weight:600;cursor:pointer;text-align:center;background:#fff;
+  box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-height:62px;
 }
 /* Review faces */
 .review-hint{font-size:20px;color:var(--text-l);margin-bottom:8px}
@@ -362,6 +363,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .story-info{flex:1;min-width:0}
 .story-name{font-size:22px;font-weight:700;color:var(--primary)}
 .story-meta{font-size:14px;color:var(--text-l)}
+.story-meta-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.story-size{flex-shrink:0;white-space:nowrap;font-size:13px;font-weight:600;color:#8a8a8a;background:#F4F4F5;border-radius:10px;padding:3px 9px}
 .story-page-btn{font-size:18px;padding:10px 14px}
 .article-mark-badges{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex-shrink:0;padding:0 4px}
 .mark-badge{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:var(--text);white-space:nowrap}
@@ -434,7 +437,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-text-content .aw.found.aw-red{color:#E53935;font-weight:700}
 .article-text-content .aw.found.aw-yellow{color:#E6A800;font-weight:700}
 .article-text-content .aw.found.aw-green{color:#000;font-weight:400}
-.article-text-content .aw.aw-phrase{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;text-decoration-skip-ink:none;color:inherit;font-weight:400}
+.article-text-content .aw.aw-phrase{text-decoration:underline;text-underline-offset:5px;text-decoration-thickness:1px;text-decoration-skip-ink:none;color:inherit;font-weight:400}
 .article-text-content .aw-phrase-word{user-select:none;-webkit-user-select:none}
 .article-img-content{width:100%;border-radius:var(--radius);display:block;margin-bottom:14px;box-shadow:var(--shadow)}
 .article-view-title{font-size:26px;font-weight:800;color:#000;text-align:center;margin-bottom:16px}
@@ -1162,9 +1165,9 @@ function renderHome(){
       <div class="home-module-title">📁 我的词库</div>
       <div class="stats-row">
         <div class="stat-box clickable" onclick="navigateAllWords(null, 'home')" title="查看全部单词"><div class="stat-num">${total}</div><div class="stat-label">全部</div></div>
-        <div class="stat-box red clickable" onclick="showMarkedWords('red')" title="查看所有不会的单词"><div class="stat-num">${redCount}</div><div class="stat-label">🔴 不会</div></div>
+        <div class="stat-box red clickable" onclick="showMarkedWords('red')" title="查看所有不会的单词"><div class="stat-num">${redCount}</div><div class="stat-label">🔴</div></div>
         <div class="stat-box yellow clickable" onclick="showMarkedWords('yellow')" title="查看所有想想的单词"><div class="stat-num">${yellowCount}</div><div class="stat-label">🟡 想想</div></div>
-        <div class="stat-box green clickable" onclick="showMarkedWords('green')" title="查看所有会的单词"><div class="stat-num">${greenCount}</div><div class="stat-label">🟢 会</div></div>
+        <div class="stat-box green clickable" onclick="showMarkedWords('green')" title="查看所有会的单词"><div class="stat-num">${greenCount}</div><div class="stat-label">🟢</div></div>
       </div>
       <div class="btn-row">
         <button class="btn btn-primary btn-large" onclick="startNewWord()">➕ 添加单词</button>
@@ -1383,6 +1386,24 @@ async function computeWordSizeMap(){
   }
   return map;
 }
+async function computeStorySizeMap(){
+  // 统计每个故事的占用空间：图片（base64 存于 IndexedDB）+ 文字（标题与各页 prompt）
+  let allImages = [];
+  try{ allImages = await dbGetAllStoryImages(); }catch(err){ return {}; }
+  const map = {};
+  for(const img of allImages){
+    if(!img || !img.storyId) continue;
+    if(!map[img.storyId]) map[img.storyId] = {bytes:0, count:0};
+    map[img.storyId].bytes += dataUrlBytes(img.data);
+    map[img.storyId].count += 1;
+  }
+  for(const s of state.stories){
+    if(!map[s.id]) map[s.id] = {bytes:0, count:0};
+    const text = (s.title || '') + (s.pages || []).map(p => (p.prompt || '')).join('');
+    map[s.id].bytes += text.length * 2; // UTF-16 约 2 字节/字符
+  }
+  return map;
+}
 function renderWordList(containerId, words, sizeMap){
   const container = document.getElementById(containerId);
   if(!container) return;
@@ -1488,7 +1509,7 @@ function showFavoriteWords(from){
 function renderAllWords(){
   const filter = state.allWordsFilter;
   const words = getFilteredAllWords();
-  const title = filter === 'red' ? '🔴 不会的单词' : filter === 'favorite' ? '⭐ 我的收藏' : '📖 全部单词';
+  const title = filter === 'red' ? '🔴的单词' : filter === 'favorite' ? '⭐ 我的收藏' : '📖 全部单词';
   const p = getSortPref();
   const sizeActive = p.words === 'size';
   document.getElementById('page-all-words').innerHTML = `
@@ -1549,7 +1570,7 @@ function showMarkedWords(label){
 async function renderMarkedWords(){
   const label = state.markedLabel;
   const words = state.words.filter(w=>w.label===label);
-  const title = label==='red' ? '🔴 不会的单词' : label==='yellow' ? '🟡 想想的单词' : '🟢 会的单词';
+  const title = label==='red' ? '🔴的单词' : label==='yellow' ? '🟡 想想的单词' : '🟢的单词';
   document.getElementById('page-marked-words').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
@@ -1650,9 +1671,9 @@ function renderWordEdit(){
       <div class="form-group">
         <label class="form-label">颜色标记</label>
         <div class="label-selector" id="label-selector">
-          <div class="label-option red ${ew.label==='red'?'active':''}" onclick="setEditLabel('red')">🔴 不会</div>
-          <div class="label-option yellow ${ew.label==='yellow'?'active':''}" onclick="setEditLabel('yellow')">🟡 想一想</div>
-          <div class="label-option green ${ew.label==='green'?'active':''}" onclick="setEditLabel('green')">🟢 会</div>
+          <div class="label-option red ${ew.label==='red'?'active':''}" onclick="setEditLabel('red')">🔴</div>
+          <div class="label-option yellow ${ew.label==='yellow'?'active':''}" onclick="setEditLabel('yellow')">🟡</div>
+          <div class="label-option green ${ew.label==='green'?'active':''}" onclick="setEditLabel('green')">🟢</div>
         </div>
       </div>
       <div class="form-group" id="placement-form-group"></div>
@@ -2350,9 +2371,9 @@ async function renderReview(){
         <div class="review-chinese">${escapeHtml(word.chinese)}</div>
       </div>
       <div class="review-labels">
-        <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴 不会</div>
-        <div class="review-label-btn yellow ${word.label==='yellow'?'active':''}" onclick="setReviewLabel('yellow')">🟡 想一想</div>
-        <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
+        <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴</div>
+        <div class="review-label-btn yellow ${word.label==='yellow'?'active':''}" onclick="setReviewLabel('yellow')">🟡</div>
+        <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢</div>
       </div>
       <div class="btn-row">
         <button class="btn btn-gray review-nav-btn" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
@@ -2377,9 +2398,9 @@ async function renderReview(){
         ${imagesHTML ? `<div class="review-images">${imagesHTML}</div>` : '<div style="font-size:48px;margin:16px 0">📝</div>'}
       </div>
       <div class="review-labels">
-        <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴 不会</div>
-        <div class="review-label-btn yellow ${word.label==='yellow'?'active':''}" onclick="setReviewLabel('yellow')">🟡 想一想</div>
-        <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢 会</div>
+        <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴</div>
+        <div class="review-label-btn yellow ${word.label==='yellow'?'active':''}" onclick="setReviewLabel('yellow')">🟡</div>
+        <div class="review-label-btn green ${word.label==='green'?'active':''}" onclick="setReviewLabel('green')">🟢</div>
       </div>
       <div class="btn-row">
         <button class="btn btn-gray review-nav-btn" onclick="prevReviewWord()" ${state.reviewIndex===0?'disabled style="opacity:.5"':''}>◀</button>
@@ -2734,18 +2755,24 @@ async function loadStoryCovers(storyIds){
     }
   }
 }
-function renderStoryCard(story){
+function renderStoryCard(story, sizeMap){
+  const size = sizeMap && sizeMap[story.id];
+  const sizeText = size ? formatSize(size.bytes) : (sizeMap ? '0 B' : '');
+  const sizeBadge = sizeMap ? `<div class="story-size">📦 ${sizeText}</div>` : '';
   return `
     <div class="story-card" onclick="navigateStoryView('${story.id}')">
       <div class="story-cover" id="story-cover-${story.id}">🖼️</div>
       <div class="story-info">
         <div class="story-name">${escapeHtml(story.title)}</div>
-        <div class="story-meta">${story.pages.length} 张图片</div>
+        <div class="story-meta-row">
+          <span class="story-meta">${story.pages.length} 张图片</span>
+          ${sizeBadge}
+        </div>
       </div>
     </div>`;
 }
-async function renderStoryCards(containerId, stories){
-  document.getElementById(containerId).innerHTML = stories.map(renderStoryCard).join('') ||
+async function renderStoryCards(containerId, stories, sizeMap){
+  document.getElementById(containerId).innerHTML = stories.map(s=>renderStoryCard(s, sizeMap)).join('') ||
     `<div class="empty-state"><div class="emoji">🎨</div><p>还没有故事<br>点击下方按钮创建一个吧！</p></div>`;
   await loadStoryCovers(stories.map(s=>s.id));
 }
@@ -2810,9 +2837,12 @@ function renderStoryHome(){
     ${libHTML}
   `;
 }
-function showAllStories(){
+async function showAllStories(){
   renderStoryHome();
   state.storyHomeMode = 'all';
+  const p = getSortPref();
+  const nameActive = p.stories === 'name';
+  const sizeActive = p.stories === 'size';
   document.getElementById('page-story-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryHome()">←</button>
@@ -2822,28 +2852,49 @@ function showAllStories(){
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startStoryEdit(null)">➕ 新建故事</button>
     </div>
-    <div class="form-group" style="margin-bottom:16px">
+    <div class="form-group" style="margin-bottom:8px">
       <input type="text" class="form-input" id="story-search-input" placeholder="🔍 搜索故事标题..." autocomplete="off" oninput="searchStories(this.value)">
+    </div>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="sort-chip ${nameActive?'active':''}" onclick="toggleAllStoriesSort('name')">🔤 按名称</button>
+      <button class="sort-chip ${sizeActive?'active':''}" onclick="toggleAllStoriesSort('size')">📦 按大小</button>
     </div>
     <div id="all-story-list"></div>
   `;
-  renderStoryCards('all-story-list', state.stories.slice().reverse());
+  // 异步统计各故事占用空间（图片 + 文字），用于「按大小排序」与大小徽标
+  state._storySizeMap = await computeStorySizeMap();
+  renderAllStoryList();
+}
+function renderAllStoryList(){
+  const q = (state.allStoriesQuery || '').trim().toLowerCase();
+  let stories;
+  if(q){
+    stories = state.stories.filter(s => (s.title||'').toLowerCase().includes(q));
+  } else {
+    stories = state.stories.slice().reverse();   // 原顺序（最新在前）
+  }
+  const sizeMap = state._storySizeMap || {};
+  const p = getSortPref();
+  if(p.stories === 'name'){
+    stories = sortByText(stories, 'title');
+  } else if(p.stories === 'size'){
+    stories = stories.slice().sort((a,b)=>
+      (sizeMap[b.id] ? sizeMap[b.id].bytes : 0) - (sizeMap[a.id] ? sizeMap[a.id].bytes : 0)
+    );
+  }
+  renderStoryCards('all-story-list', stories, sizeMap);
 }
 function searchStories(query){
+  state.allStoriesQuery = query;
   const list = document.getElementById('all-story-list');
   if(!list) return;
-  const q = (query||'').trim().toLowerCase();
-  const all = state.stories.slice().reverse();
-  if(!q){
-    renderStoryCards('all-story-list', all);
-    return;
-  }
-  const filtered = all.filter(s => (s.title||'').toLowerCase().includes(q));
-  if(filtered.length === 0){
-    list.innerHTML = `<div class="empty-state"><div class="emoji">🔍</div><p>没有找到标题包含「${escapeHtml(q)}」的故事</p></div>`;
-  } else {
-    renderStoryCards('all-story-list', filtered);
-  }
+  renderAllStoryList();
+}
+function toggleAllStoriesSort(mode){
+  const p = getSortPref();
+  p.stories = (p.stories === mode) ? null : mode;  // 再次点击同一项取消排序
+  saveSortPref(p);
+  renderAllStoryList();
 }
 function showFavoriteStories(){
   renderStoryHome();
@@ -2920,7 +2971,7 @@ function renderStoryLib(){
       <button class="btn btn-blue" onclick="createStoryGroup('${lib.id}')">➕ 新建分组</button>
       <button class="btn btn-green" onclick="startStoryEdit('${lib.id}')">➕ 新建故事</button>
     </div>
-    <div class="section-title">🗂️ ${escapeHtml(lib.name)}（共 ${libStoryCount} 个故事）
+    <div class="section-title">🗂️ ${escapeHtml(lib.name)}
       <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
     ${groupsHTML}
@@ -3567,7 +3618,7 @@ function renderArticleLib(){
       <button class="btn btn-blue" onclick="createArticleGroup('${lib.id}')">➕ 新建分组</button>
       <button class="btn btn-green" onclick="startArticleEdit('${lib.id}')">➕ 新建文章</button>
     </div>
-    <div class="section-title">📚 ${escapeHtml(lib.name)}（共 ${libCount} 篇文章）
+    <div class="section-title">📚 ${escapeHtml(lib.name)}
       <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
     ${groupsHTML}
