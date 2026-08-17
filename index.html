@@ -140,6 +140,16 @@ body{
 }
 .form-input:focus{outline:none;border-color:var(--primary)}
 textarea.form-input{resize:vertical;min-height:60px}
+/* 关联词 */
+.related-input-row{display:flex;gap:8px;align-items:center}
+.related-input-row .form-input{flex:1}
+.related-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.related-chip{
+  display:inline-flex;align-items:center;gap:6px;background:#E8F1FB;color:#1565C0;
+  border-radius:999px;padding:6px 12px;font-size:18px;
+}
+.related-chip .x{cursor:pointer;font-weight:700;line-height:1;opacity:.7;font-size:20px}
+.related-chip .x:hover{opacity:1}
 /* Image upload */
 .image-slots{display:flex;gap:10px;flex-wrap:wrap}
 .image-slot{
@@ -425,6 +435,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-text-content .aw.found.aw-yellow{color:#E6A800;font-weight:700}
 .article-text-content .aw.found.aw-green{color:#000;font-weight:400}
 .article-text-content .aw.aw-phrase{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:2px;color:inherit;font-weight:400}
+.article-text-content .aw.found.related{text-decoration:underline dotted;text-underline-offset:3px}
 .article-text-content .aw-phrase-word{user-select:none;-webkit-user-select:none}
 .article-img-content{width:100%;border-radius:var(--radius);display:block;margin-bottom:14px;box-shadow:var(--shadow)}
 .article-view-title{font-size:26px;font-weight:800;color:#000;text-align:center;margin-bottom:16px}
@@ -1572,6 +1583,7 @@ function startNewWord(preLib, preGroup){
     favorite: false,
     images: [],
     originalImageIds: [],
+    related: [],
     placements: (preLib && preGroup) ? [{libraryId:preLib, groupId:preGroup}] : []
   };
   renderWordEdit();
@@ -1594,6 +1606,7 @@ async function startEditExisting(word){
     favorite: !!word.favorite,
     images: images.map(img=>({id:img.id, data:img.data, isNew:false})),
     originalImageIds: images.map(img=>img.id),
+    related: (word.related||[]).slice(),
     placements: (word.placements||[]).slice()
   };
   renderWordEdit();
@@ -1620,6 +1633,14 @@ function renderWordEdit(){
         <input type="text" class="form-input" id="input-english" value="${escapeHtml(ew.english)}" placeholder="输入英文单词" autocomplete="off">
       </div>
       <div class="form-group">
+        <label class="form-label">添加关联词</label>
+        <div class="related-input-row">
+          <input type="text" class="form-input" id="input-related" placeholder="如：cats, cat's, catting" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();addRelatedWord();}">
+          <button type="button" class="btn btn-small btn-white" onclick="addRelatedWord()">＋ 添加</button>
+        </div>
+        <div class="related-chips" id="related-chips"></div>
+      </div>
+      <div class="form-group">
         <label class="form-label">备注（可不填）</label>
         <textarea class="form-input" id="input-chinese" placeholder="输入备注内容，支持任何文字">${escapeHtml(ew.chinese)}</textarea>
       </div>
@@ -1641,12 +1662,54 @@ function renderWordEdit(){
   `;
   renderWordEditPlacements();
   renderWordEditImages();
+  renderRelatedChips();
 }
 function setEditLabel(label){
   state.editingWord.label = label;
   document.querySelectorAll('#label-selector .label-option').forEach(el=>{
     el.classList.toggle('active', el.classList.contains(label));
   });
+}
+function addRelatedWord(){
+  const ew = state.editingWord;
+  if(!ew) return;
+  if(!ew.related) ew.related = [];
+  const input = document.getElementById('input-related');
+  if(!input) return;
+  const engEl = document.getElementById('input-english');
+  const eng = (engEl ? engEl.value : (ew.english||'')).trim().toLowerCase();
+  const parts = input.value.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
+  let added = 0;
+  for(const p of parts){
+    const low = p.toLowerCase();
+    if(!low) continue;
+    if(low === eng) continue;                       // 不与单词本身重复
+    if(ew.related.some(r=>r.toLowerCase()===low)) continue;  // 列表内去重
+    ew.related.push(p);
+    added++;
+  }
+  input.value = '';
+  renderRelatedChips();
+  if(parts.length && added === 0){
+    showToast('没有新增（已存在或与单词相同）');
+  }
+}
+function removeRelatedWord(idx){
+  const ew = state.editingWord;
+  if(!ew || !ew.related) return;
+  ew.related.splice(idx, 1);
+  renderRelatedChips();
+}
+function renderRelatedChips(){
+  const ew = state.editingWord;
+  const box = document.getElementById('related-chips');
+  if(!box || !ew) return;
+  const list = ew.related || [];
+  if(list.length === 0){
+    box.innerHTML = '<span style="color:var(--text-l);font-size:15px">暂无关联词。例如 cat 可填 cats、cat\'s、catting，文章中这些词形也会跳转到 cat。</span>';
+    return;
+  }
+  box.innerHTML = list.map((r,i)=>`<span class="related-chip">${escapeHtml(r)} <span class="x" title="移除" onclick="removeRelatedWord(${i})">×</span></span>`).join('');
 }
 function togglePlacement(libId, groupId){
   const placements = state.editingWord.placements;
@@ -1937,6 +2000,7 @@ async function saveWord(){
     chinese: ew.chinese,
     label: ew.label,
     favorite: !!ew.favorite,
+    related: (ew.related||[]).slice(),
     placements: ew.placements
   };
   const idx = state.words.findIndex(w=>w.id===ew.id);
@@ -4200,11 +4264,22 @@ function renderArticleText(text){
   const words = state.words;
   const wordSet = {};      // 单字条目：english(小写) -> word
   const phraseSet = {};    // 词组条目：english(小写) -> word
+  const relatedSet = {};   // 关联词(小写) -> 所属单词 word（文章中出现时跳转到该单词详情）
   for(const w of words){
     const low = (w.english || '').trim().toLowerCase();
     if(!low) continue;
     if(low.indexOf(' ') >= 0) phraseSet[low] = w;
     else wordSet[low] = w;
+    // 关联词：用户自行添加的其它词形（单复数/时态等），跳转到本单词
+    const rel = w.related;
+    if(rel && rel.length){
+      for(const r of rel){
+        const rlow = (r || '').trim().toLowerCase();
+        if(!rlow) continue;
+        if(wordSet[rlow]) continue;   // 已是正式单词，优先用正式条目
+        if(!relatedSet[rlow]) relatedSet[rlow] = w;  // 同日一词多个关联命中取首个所属词
+      }
+    }
   }
   let maxPhraseWords = 1;
   for(const k in phraseSet){
@@ -4286,6 +4361,12 @@ function renderArticleText(text){
       if(wordSet[clean]){
         const cls = 'aw found' + articleWordLabelClass(wordSet[clean]);
         html += awSpan(cls, clean, t.text);
+      } else if(relatedSet[clean]){
+        // 关联词：以所属单词的颜色显示，双击跳转到所属单词详情
+        const owner = relatedSet[clean];
+        const ownerLow = owner.english.toLowerCase();
+        const cls = 'aw found related' + articleWordLabelClass(owner);
+        html += `<span class="${cls}" data-word="${escapeHtml(ownerLow)}" onclick="articleWordTap('${escapeHtml(ownerLow)}')" oncontextmenu="return false">${escapeHtml(t.text)}</span>`;
       } else {
         html += awSpan('aw', clean, t.text);
       }
