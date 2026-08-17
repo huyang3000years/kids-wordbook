@@ -424,6 +424,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-text-content .aw.found.aw-red{color:#E53935;font-weight:700}
 .article-text-content .aw.found.aw-yellow{color:#E6A800;font-weight:700}
 .article-text-content .aw.found.aw-green{color:#000;font-weight:400}
+.article-text-content .aw.aw-phrase{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:2px;color:#1565C0;font-weight:600}
+.article-text-content .aw-phrase-word{user-select:none;-webkit-user-select:none}
 .article-img-content{width:100%;border-radius:var(--radius);display:block;margin-bottom:14px;box-shadow:var(--shadow)}
 .article-view-title{font-size:26px;font-weight:800;color:#000;text-align:center;margin-bottom:16px}
 .article-font-controls{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px}
@@ -4029,11 +4031,22 @@ function cancelArticleEdit(){
 function goBackFromArticleEdit(){
   const r = state.articleEditReturn || {type:'home'};
   state.articleEditReturn = null;
-  if(r.type === 'articleBack' && r.articleId) navigateArticleView(r.articleId);
-  else if(r.type === 'group') navigateArticleGroup(r.libId, r.groupId);
+  if(r.type === 'articleBack' && r.articleId){
+    // 从文章阅读页进入编辑、再返回：复用阅读视图，由阅读页的返回逻辑负责恢复列表滚动
+    navigateArticleView(r.articleId);
+    return;
+  }
+  if(r.type === 'group') navigateArticleGroup(r.libId, r.groupId);
   else if(r.type === 'lib') navigateArticleLib(r.libId);
   else if(r.type === 'all') showAllArticles();
   else navigateArticleHome();
+  // 编辑返回列表时恢复到「进入文章前所在列表」的滚动位置（与文章阅读返回一致）
+  const y = state.articleViewScrollY || 0;
+  state.articleViewFrom = null;
+  state.articleViewScrollY = 0;
+  if(y > 0 && r.type !== 'home'){
+    requestAnimationFrame(()=>{ window.scrollTo(0, y); });
+  }
 }
 async function deleteArticle(articleId){
   const article = state.articles.find(a=>a.id===articleId);
@@ -4154,7 +4167,7 @@ function renderArticleView(){
       <button class="font-btn" title="放大字体" onclick="articleFontZoom(2)">A＋</button>
     </div>
     ${bodyHTML || '<div class="empty-state"><div class="emoji">📖</div><p>这篇文章没有内容</p></div>'}
-    <div class="story-view-start-hint" style="margin-top:14px">📖 双击蓝色单词可跳转到词库</div>
+    <div class="story-view-start-hint" style="margin-top:14px">📖 双击蓝色单词可跳转到词库；点击蓝色下划线（词组）可跳转词组页面</div>
   `;
   // 绑定双击/双触事件
   setupArticleWordTap();
@@ -4183,42 +4196,127 @@ function awSpan(cls, word, text){
   return `<span class="${cls}" data-word="${w}" onclick="articleWordTap('${w}')" oncontextmenu="return false">${escapeHtml(text)}</span>`;
 }
 function renderArticleText(text){
-  // 将文本按空格/标点分词，匹配词库的英文单词
+  // 将文本分词，匹配词库的「单词」与「词组（含空格的多词条目）」
   const words = state.words;
-  const wordSet = {};
+  const wordSet = {};      // 单字条目：english(小写) -> word
+  const phraseSet = {};    // 词组条目：english(小写) -> word
   for(const w of words){
-    wordSet[w.english.toLowerCase()] = w;
+    const low = (w.english || '').trim().toLowerCase();
+    if(!low) continue;
+    if(low.indexOf(' ') >= 0) phraseSet[low] = w;
+    else wordSet[low] = w;
   }
-  // 按空格和换行分割，保留分隔符
-  const parts = text.split(/(\s+)/);
+  let maxPhraseWords = 1;
+  for(const k in phraseSet){
+    const n = k.split(' ').length;
+    if(n > maxPhraseWords) maxPhraseWords = n;
+  }
+  // 分词：单词 / 空白 / 标点 三类
+  const tokenRe = /([a-zA-Z][a-zA-Z'-]*)|(\s+)|([^a-zA-Z\s]+)/g;
+  const tokens = [];
+  let m;
+  while((m = tokenRe.exec(text)) !== null){
+    if(m[1] !== undefined) tokens.push({type:'word', text:m[1]});
+    else if(m[2] !== undefined) tokens.push({type:'space', text:m[2]});
+    else tokens.push({type:'punct', text:m[3]});
+  }
+  // 词组匹配：在单词 token 序列上做贪心最长匹配
+  const wordPos = [];
+  tokens.forEach((t, idx)=>{ if(t.type === 'word') wordPos.push(idx); });
+  const phraseOfToken = {};   // token 索引 -> 词组信息（仅起始/各组成 token 标记）
+  const phraseStart = {};     // 起始 token 索引 -> 词组信息
+  let pi = 0;
+  while(pi < wordPos.length){
+    let best = null;
+    for(let len = Math.min(maxPhraseWords, wordPos.length - pi); len >= 2; len--){
+      let ok = true;
+      let cand = '';
+      for(let k = 0; k < len; k++){
+        cand += (k > 0 ? ' ' : '') + tokens[wordPos[pi + k]].text.toLowerCase();
+      }
+      // 组成词组的单词 token 之间必须只由空白分隔
+      for(let k = 0; k < len - 1; k++){
+        for(let t = wordPos[pi + k] + 1; t < wordPos[pi + k + 1]; t++){
+          if(tokens[t].type !== 'space'){ ok = false; break; }
+        }
+        if(!ok) break;
+      }
+      if(ok && phraseSet[cand]){
+        const wordIdxs = [];
+        for(let k = 0; k < len; k++) wordIdxs.push(wordPos[pi + k]);
+        best = {cand: cand, word: phraseSet[cand], start: wordPos[pi], end: wordPos[pi + len - 1], wordIdxs: wordIdxs};
+        break;
+      }
+    }
+    if(best){
+      best.wordIdxs.forEach(wi => { phraseOfToken[wi] = best; });
+      phraseStart[best.start] = best;
+      pi += best.wordIdxs.length;
+    } else {
+      pi++;
+    }
+  }
+  // 渲染
   let html = '';
-  for(let part of parts){
-    if(/^\s+$/.test(part)){
-      html += escapeHtml(part);
+  let k = 0;
+  while(k < tokens.length){
+    const t = tokens[k];
+    if(t.type === 'space' || t.type === 'punct'){
+      html += escapeHtml(t.text);
+      k++;
       continue;
     }
-    // 去除标点后匹配
-    const clean = part.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
-    if(clean && wordSet[clean]){
-      const cls = 'aw found' + articleWordLabelClass(wordSet[clean]);
-      html += awSpan(cls, clean, part);
+    // 单词 token
+    const ph = phraseOfToken[k];
+    if(ph && phraseStart[k] === ph){
+      // 词组：整段以下划线显示，单击跳词组，双击单词跳单字
+      const inner = ph.wordIdxs.map(wi => {
+        const wt = tokens[wi];
+        const cls = 'aw-phrase-word' + (wordSet[wt.text.toLowerCase()] ? ' has-word' : '');
+        return `<span class="${cls}" data-word="${escapeHtml(wt.text.toLowerCase())}">${escapeHtml(wt.text)}</span>`;
+      }).join(' ');
+      const phraseCls = 'aw aw-phrase';
+      html += `<span class="${phraseCls}" data-phrase="${escapeHtml(ph.cand)}" onclick="articlePhraseTap(this, event)">${inner}</span>`;
+      k = ph.end + 1;
+    } else if(ph){
+      // 词组内的非起始组成单词（已被 start 渲染，跳过）
+      k++;
     } else {
-      // 尝试去掉首尾标点后匹配
-      const m = part.match(/^([^a-zA-Z]*)([a-zA-Z'-]+)([^a-zA-Z]*)$/);
-      if(m){
-        const c = m[2].toLowerCase();
-        if(wordSet[c]){
-          const cls = 'aw found' + articleWordLabelClass(wordSet[c]);
-          html += escapeHtml(m[1]) + awSpan(cls, c, m[2]) + escapeHtml(m[3]);
-        } else {
-          html += awSpan('aw', c, part);
-        }
+      const clean = t.text.toLowerCase();
+      if(wordSet[clean]){
+        const cls = 'aw found' + articleWordLabelClass(wordSet[clean]);
+        html += awSpan(cls, clean, t.text);
       } else {
-        html += escapeHtml(part);
+        html += awSpan('aw', clean, t.text);
       }
+      k++;
     }
   }
   return html;
+}
+let _lastPhraseTapTime = 0;
+let _lastPhraseTapPhrase = null;
+function articlePhraseTap(el, ev){
+  // 单击下划线 -> 跳转词组页面；双击其中某个单词 -> 跳转该单词详情页
+  const phrase = el.getAttribute('data-phrase');
+  const wordEl = (ev && ev.target && ev.target.closest) ? ev.target.closest('[data-word]') : null;
+  const word = wordEl ? wordEl.getAttribute('data-word') : null;
+  const now = Date.now();
+  if(_lastPhraseTapPhrase === phrase && (now - _lastPhraseTapTime) < 320){
+    _lastPhraseTapPhrase = null;
+    _lastPhraseTapTime = 0;
+    jumpToWord(word || phrase);
+  } else {
+    _lastPhraseTapPhrase = phrase;
+    _lastPhraseTapTime = now;
+    setTimeout(()=>{
+      if(_lastPhraseTapPhrase === phrase){
+        _lastPhraseTapPhrase = null;
+        _lastPhraseTapTime = 0;
+        jumpToWord(phrase);
+      }
+    }, 320);
+  }
 }
 let _lastWordTapTime = 0;
 let _lastWordTapWord = null;
