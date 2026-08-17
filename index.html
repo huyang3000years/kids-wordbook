@@ -4167,7 +4167,7 @@ function renderArticleView(){
       <button class="font-btn" title="放大字体" onclick="articleFontZoom(2)">A＋</button>
     </div>
     ${bodyHTML || '<div class="empty-state"><div class="emoji">📖</div><p>这篇文章没有内容</p></div>'}
-    <div class="story-view-start-hint" style="margin-top:14px">📖 双击蓝色单词可跳转到词库；点击蓝色下划线（词组）可跳转词组页面</div>
+    <div class="story-view-start-hint" style="margin-top:14px">📖 单词按标记显示颜色（🔴不会=红、🟡想想=黄、🟢会=黑）：双击单词跳词库。词组以下划线显示：单击跳词组页，双击其中单词跳单字。</div>
   `;
   // 绑定双击/双触事件
   setupArticleWordTap();
