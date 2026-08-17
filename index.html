@@ -1634,7 +1634,7 @@ function renderWordEdit(){
       <div class="form-group">
         <label class="form-label">添加关联词</label>
         <div class="related-input-row">
-          <input type="text" class="form-input" id="input-related" placeholder="如：cats, cat's, catting" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();addRelatedWord();}">
+          <input type="text" class="form-input" id="input-related" placeholder="输入一个单词或词组，如：cats / go to school" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();addRelatedWord();}">
           <button type="button" class="btn btn-small btn-white" onclick="addRelatedWord()">＋ 添加</button>
         </div>
         <div class="related-chips" id="related-chips"></div>
@@ -1677,21 +1677,14 @@ function addRelatedWord(){
   if(!input) return;
   const engEl = document.getElementById('input-english');
   const eng = (engEl ? engEl.value : (ew.english||'')).trim().toLowerCase();
-  const parts = input.value.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
-  let added = 0;
-  for(const p of parts){
-    const low = p.toLowerCase();
-    if(!low) continue;
-    if(low === eng) continue;                       // 不与单词本身重复
-    if(ew.related.some(r=>r.toLowerCase()===low)) continue;  // 列表内去重
-    ew.related.push(p);
-    added++;
-  }
+  const raw = input.value.trim();
+  if(!raw) return;                                 // 空内容不处理
+  const low = raw.toLowerCase();
+  if(low === eng){ showToast('不能添加与单词本身相同的内容'); return; }
+  if(ew.related.some(r=>r.toLowerCase()===low)){ showToast('该关联词已存在'); return; }
+  ew.related.push(raw);                            // 整体作为一条（单词或词组），不拆分
   input.value = '';
   renderRelatedChips();
-  if(parts.length && added === 0){
-    showToast('没有新增（已存在或与单词相同）');
-  }
 }
 function removeRelatedWord(idx){
   const ew = state.editingWord;
