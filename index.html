@@ -75,10 +75,12 @@ body{
 .lib-card.drag-over{box-shadow:0 0 0 3px var(--primary-l);border-color:var(--primary)}
 .lib-card.hidden-lib{background:#F4F4F4;opacity:.55}
 .lib-card.pinned-lib{background:#FFFCF0;box-shadow:0 0 0 2px #FFE08A, var(--shadow)}
-.lib-pin-btn{background:transparent;border:none;font-size:18px;line-height:1;color:var(--text-2);cursor:pointer;padding:6px 6px;border-radius:8px;flex-shrink:0}
+.lib-card-actions{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+.lib-pin-btn{background:transparent;border:none;color:var(--text-2);cursor:pointer;padding:4px;line-height:0;border-radius:8px}
+.lib-pin-btn svg{width:20px;height:20px;display:block}
 .lib-pin-btn:active{background:var(--bg-2)}
-.lib-pin-btn.pinned{filter:drop-shadow(0 0 1px #E6A700)}
-.lib-collapse-btn{margin-left:auto;background:transparent;border:none;font-size:20px;line-height:1;color:var(--text-2);cursor:pointer;padding:6px 8px;border-radius:8px;flex-shrink:0}
+.lib-pin-btn.pinned{color:#E6A700}
+.lib-collapse-btn{background:transparent;border:none;font-size:20px;line-height:1;color:var(--text-2);cursor:pointer;padding:4px 6px;border-radius:8px;flex-shrink:0}
 .lib-collapse-btn:active{background:var(--bg-2)}
 .lib-groups-inline{flex-basis:100%;margin-top:10px;display:flex;flex-direction:column;gap:8px}
 .lib-card.collapsed .lib-groups-inline{display:none}
@@ -1251,8 +1253,10 @@ function renderWordLibHome(){
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词${lib.hidden?' · 🙈 已隐藏':''}${lib.pinned?' · 📌 已置顶':''}</div>
           </div>
-          <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('word','${lib.id}')">${lib.pinned?'📌':'📍'}</button>
-          <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('word','${lib.id}')">${isLibCollapsed('word',lib.id)?'▸':'▾'}</button>
+          <div class="lib-card-actions">
+            <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('word','${lib.id}')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20 13 H4 Z" fill="currentColor"/><rect x="3" y="16" width="18" height="3" rx="1.5" fill="currentColor"/></svg></button>
+            <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('word','${lib.id}')">${isLibCollapsed('word',lib.id)?'▸':'▾'}</button>
+          </div>
           ${libGroupsInlineHTML('word', lib)}
         </div>
       `;
@@ -2844,8 +2848,10 @@ function renderStoryHome(){
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${count} 个故事${lib.hidden?' · 🙈 已隐藏':''}${lib.pinned?' · 📌 已置顶':''}</div>
           </div>
-          <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('story','${lib.id}')">${lib.pinned?'📌':'📍'}</button>
-          <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('story','${lib.id}')">${isLibCollapsed('story',lib.id)?'▸':'▾'}</button>
+          <div class="lib-card-actions">
+            <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('story','${lib.id}')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20 13 H4 Z" fill="currentColor"/><rect x="3" y="16" width="18" height="3" rx="1.5" fill="currentColor"/></svg></button>
+            <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('story','${lib.id}')">${isLibCollapsed('story',lib.id)?'▸':'▾'}</button>
+          </div>
           ${libGroupsInlineHTML('story', lib)}
         </div>`;
     }).join('');
@@ -3543,8 +3549,10 @@ function renderArticleHome(){
             <div class="lib-name">${escapeHtml(lib.name)}</div>
             <div class="lib-meta">${groupCount} 个分组 · ${count} 篇文章${lib.hidden?' · 🙈 已隐藏':''}${lib.pinned?' · 📌 已置顶':''}</div>
           </div>
-          <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('article','${lib.id}')">${lib.pinned?'📌':'📍'}</button>
-          <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('article','${lib.id}')">${isLibCollapsed('article',lib.id)?'▸':'▾'}</button>
+          <div class="lib-card-actions">
+            <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('article','${lib.id}')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20 13 H4 Z" fill="currentColor"/><rect x="3" y="16" width="18" height="3" rx="1.5" fill="currentColor"/></svg></button>
+            <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('article','${lib.id}')">${isLibCollapsed('article',lib.id)?'▸':'▾'}</button>
+          </div>
           ${libGroupsInlineHTML('article', lib)}
         </div>`;
     }).join('');
