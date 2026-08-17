@@ -1816,7 +1816,7 @@ function goBackFromEdit(){
   } else if(r && r.type === 'addToLib'){
     navigateAddToLib(r.libraryId);
   } else if(r && r.type === 'article'){
-    navigateArticleView(r.articleId);
+    reopenArticleView(r.articleId);
   } else if(r && r.type === 'articleWord'){
     showArticleWordView(r.wordId);
   } else if(state.currentGroupId && state.currentLibraryId){
@@ -3998,6 +3998,18 @@ async function navigateArticleView(articleId){
   renderArticleView();
   showPage('page-article-view');
 }
+async function reopenArticleView(articleId){
+  // 从单词详情/添加单词页返回文章时复用：只重新渲染文章视图，保留 articleViewFrom，
+  // 确保再点一次返回能回到「进入文章前的文章列表」而不是文章库
+  const article = state.articles.find(a=>a.id===articleId);
+  if(!article){ navigateArticleHome(); return; }
+  let images = [];
+  try{ images = await dbGetArticleImages(articleId); }catch(err){}
+  state.articleViewArticle = article;
+  state.articleViewImages = images;
+  renderArticleView();
+  showPage('page-article-view');
+}
 function articleBack(){
   const from = state.articleViewFrom;
   state.articleViewFrom = null;
@@ -4257,7 +4269,7 @@ function articleWordReturn(){
   const r = state.articleWordViewReturn;
   state.articleWordViewReturn = null;
   if(r && r.articleId){
-    navigateArticleView(r.articleId).then(()=>{
+    reopenArticleView(r.articleId).then(()=>{
       if(r.scrollY > 0){
         requestAnimationFrame(()=>window.scrollTo(0, r.scrollY));
       }
