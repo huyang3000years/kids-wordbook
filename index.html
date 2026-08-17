@@ -4260,27 +4260,38 @@ function awSpan(cls, word, text){
 function renderArticleText(text){
   // 将文本分词，匹配词库的「单词」与「词组（含空格的多词条目）」
   const words = state.words;
-  const wordSet = {};      // 单字条目：english(小写) -> word
-  const phraseSet = {};    // 词组条目：english(小写) -> word
-  const relatedSet = {};   // 关联词(小写) -> 所属单词 word（文章中出现时跳转到该单词详情）
+  const wordSet = {};        // 单字条目：english(小写) -> word
+  const phraseSet = {};      // 正式词组条目：english(小写) -> word
+  const relatedSet = {};     // 关联单字(小写) -> 所属单词 word（文章中跳转到该单词详情）
+  const relatedPhraseSet = {}; // 关联词组(含空格,小写) -> 所属单词 word（整体匹配,不按空格拆分）
   for(const w of words){
     const low = (w.english || '').trim().toLowerCase();
     if(!low) continue;
     if(low.indexOf(' ') >= 0) phraseSet[low] = w;
     else wordSet[low] = w;
-    // 关联词：用户自行添加的其它词形（单复数/时态等），跳转到本单词
+    // 关联词：用户自行添加的其它词形（单复数/时态/同义词组等）
     const rel = w.related;
     if(rel && rel.length){
       for(const r of rel){
         const rlow = (r || '').trim().toLowerCase();
         if(!rlow) continue;
-        if(wordSet[rlow]) continue;   // 已是正式单词，优先用正式条目
-        if(!relatedSet[rlow]) relatedSet[rlow] = w;  // 同日一词多个关联命中取首个所属词
+        if(rlow.indexOf(' ') >= 0){
+          // 关联词组：整体作为一个词组匹配，点击跳转到所属单词详情
+          if(phraseSet[rlow]) continue;             // 已是正式词组，优先用正式条目
+          if(!relatedPhraseSet[rlow]) relatedPhraseSet[rlow] = w;
+        } else {
+          if(wordSet[rlow]) continue;               // 已是正式单词，优先用正式条目
+          if(!relatedSet[rlow]) relatedSet[rlow] = w;
+        }
       }
     }
   }
   let maxPhraseWords = 1;
   for(const k in phraseSet){
+    const n = k.split(' ').length;
+    if(n > maxPhraseWords) maxPhraseWords = n;
+  }
+  for(const k in relatedPhraseSet){
     const n = k.split(' ').length;
     if(n > maxPhraseWords) maxPhraseWords = n;
   }
@@ -4314,10 +4325,10 @@ function renderArticleText(text){
         }
         if(!ok) break;
       }
-      if(ok && phraseSet[cand]){
+      if(ok && (phraseSet[cand] || relatedPhraseSet[cand])){
         const wordIdxs = [];
         for(let k = 0; k < len; k++) wordIdxs.push(wordPos[pi + k]);
-        best = {cand: cand, word: phraseSet[cand], start: wordPos[pi], end: wordPos[pi + len - 1], wordIdxs: wordIdxs};
+        best = {cand: cand, word: phraseSet[cand] || relatedPhraseSet[cand], isRelated: !!relatedPhraseSet[cand], start: wordPos[pi], end: wordPos[pi + len - 1], wordIdxs: wordIdxs};
         break;
       }
     }
@@ -4342,14 +4353,21 @@ function renderArticleText(text){
     // 单词 token
     const ph = phraseOfToken[k];
     if(ph && phraseStart[k] === ph){
-      // 词组：整段以下划线显示，单击跳词组，双击单词跳单字
+      // 词组：整段以下划线显示
       const inner = ph.wordIdxs.map(wi => {
         const wt = tokens[wi];
         const cls = 'aw-phrase-word' + (wordSet[wt.text.toLowerCase()] ? ' has-word' : '');
         return `<span class="${cls}" data-word="${escapeHtml(wt.text.toLowerCase())}">${escapeHtml(wt.text)}</span>`;
       }).join(' ');
-      const phraseCls = 'aw aw-phrase';
-      html += `<span class="${phraseCls}" data-phrase="${escapeHtml(ph.cand)}" onclick="articlePhraseTap(this, event)">${inner}</span>`;
+      if(ph.isRelated){
+        // 关联词组：以所属单词的标记颜色显示，点击跳转到所属单词详情
+        const ownerLow = ph.word.english.toLowerCase();
+        const phraseCls = 'aw found aw-phrase' + articleWordLabelClass(ph.word);
+        html += `<span class="${phraseCls}" data-related-owner="${escapeHtml(ownerLow)}" onclick="articlePhraseTap(this, event)">${inner}</span>`;
+      } else {
+        // 正式词组：单击跳词组页面，双击单词跳单字
+        html += `<span class="aw aw-phrase" data-phrase="${escapeHtml(ph.cand)}" onclick="articlePhraseTap(this, event)">${inner}</span>`;
+      }
       k = ph.end + 1;
     } else if(ph){
       // 词组内的非起始组成单词（已被 start 渲染，跳过）
@@ -4376,23 +4394,26 @@ function renderArticleText(text){
 let _lastPhraseTapTime = 0;
 let _lastPhraseTapPhrase = null;
 function articlePhraseTap(el, ev){
-  // 单击下划线 -> 跳转词组页面；双击其中某个单词 -> 跳转该单词详情页
+  // 单击下划线 -> 跳转词组页面（关联词组则跳转所属单词）；双击其中单词 -> 跳转该单词详情页
   const phrase = el.getAttribute('data-phrase');
+  const owner = el.getAttribute('data-related-owner');
   const wordEl = (ev && ev.target && ev.target.closest) ? ev.target.closest('[data-word]') : null;
   const word = wordEl ? wordEl.getAttribute('data-word') : null;
   const now = Date.now();
-  if(_lastPhraseTapPhrase === phrase && (now - _lastPhraseTapTime) < 320){
+  const key = owner || phrase;
+  const target = owner || word || phrase;
+  if(_lastPhraseTapPhrase === key && (now - _lastPhraseTapTime) < 320){
     _lastPhraseTapPhrase = null;
     _lastPhraseTapTime = 0;
-    jumpToWord(word || phrase);
+    jumpToWord(target);
   } else {
-    _lastPhraseTapPhrase = phrase;
+    _lastPhraseTapPhrase = key;
     _lastPhraseTapTime = now;
     setTimeout(()=>{
-      if(_lastPhraseTapPhrase === phrase){
+      if(_lastPhraseTapPhrase === key){
         _lastPhraseTapPhrase = null;
         _lastPhraseTapTime = 0;
-        jumpToWord(phrase);
+        jumpToWord(owner || phrase);
       }
     }, 320);
   }
