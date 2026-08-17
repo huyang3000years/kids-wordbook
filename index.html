@@ -4358,8 +4358,9 @@ function renderArticleText(text){
         const phraseCls = 'aw found aw-phrase' + articleWordLabelClass(ph.word);
         html += `<span class="${phraseCls}" data-related-owner="${escapeHtml(ownerLow)}" onclick="articlePhraseTap(this, event)">${inner}</span>`;
       } else {
-        // 正式词组：单击跳词组页面，双击单词跳单字
-        html += `<span class="aw aw-phrase" data-phrase="${escapeHtml(ph.cand)}" onclick="articlePhraseTap(this, event)">${inner}</span>`;
+        // 正式词组：下划线颜色随标记色（🔴红/🟡黄/🟢黑），单击跳词组页面，双击单词跳单字
+        const phraseCls = 'aw found aw-phrase' + articleWordLabelClass(ph.word);
+        html += `<span class="${phraseCls}" data-phrase="${escapeHtml(ph.cand)}" onclick="articlePhraseTap(this, event)">${inner}</span>`;
       }
       k = ph.end + 1;
     } else if(ph){
