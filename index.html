@@ -3994,7 +3994,11 @@ async function navigateArticleView(articleId){
   state.articleViewArticle = article;
   state.articleViewImages = images;
   state.articleViewFrom = state.currentPage;
-  state.articleViewScrollY = 0;
+  // 记录进入文章前所在列表的滚动位置，返回列表时恢复到该位置
+  // 从编辑页/单词详情页返回文章时不覆盖（保留最初从列表进入时记录的位置）
+  if(state.currentPage !== 'page-article-edit' && state.currentPage !== 'page-article-word'){
+    state.articleViewScrollY = window.scrollY || 0;
+  }
   renderArticleView();
   showPage('page-article-view');
 }
@@ -4012,7 +4016,9 @@ async function reopenArticleView(articleId){
 }
 function articleBack(){
   const from = state.articleViewFrom;
+  const y = state.articleViewScrollY || 0;
   state.articleViewFrom = null;
+  state.articleViewScrollY = 0;
   if(from === 'page-article-group' && state.currentArticleLibId && state.currentArticleGroupId){
     navigateArticleGroup(state.currentArticleLibId, state.currentArticleGroupId);
   } else if(from === 'page-article-lib' && state.currentArticleLibId){
@@ -4021,6 +4027,10 @@ function articleBack(){
     showAllArticles();
   } else {
     navigateArticleHome();
+  }
+  // 返回列表后恢复到进入文章前的滚动位置（与单词编辑返回一致）
+  if(y > 0){
+    requestAnimationFrame(()=>{ window.scrollTo(0, y); });
   }
 }
 async function toggleArticleFavorite(articleId){
