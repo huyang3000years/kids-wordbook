@@ -74,6 +74,10 @@ body{
 .lib-card.dragging{opacity:.45}
 .lib-card.drag-over{box-shadow:0 0 0 3px var(--primary-l);border-color:var(--primary)}
 .lib-card.hidden-lib{background:#F4F4F4;opacity:.55}
+.lib-card.pinned-lib{background:#FFFCF0;box-shadow:0 0 0 2px #FFE08A, var(--shadow)}
+.lib-pin-btn{background:transparent;border:none;font-size:18px;line-height:1;color:var(--text-2);cursor:pointer;padding:6px 6px;border-radius:8px;flex-shrink:0}
+.lib-pin-btn:active{background:var(--bg-2)}
+.lib-pin-btn.pinned{filter:drop-shadow(0 0 1px #E6A700)}
 .lib-collapse-btn{margin-left:auto;background:transparent;border:none;font-size:20px;line-height:1;color:var(--text-2);cursor:pointer;padding:6px 8px;border-radius:8px;flex-shrink:0}
 .lib-collapse-btn:active{background:var(--bg-2)}
 .lib-groups-inline{flex-basis:100%;margin-top:10px;display:flex;flex-direction:column;gap:8px}
@@ -953,6 +957,28 @@ function sortByText(arr, key){
     return x.localeCompare(y, 'zh-CN', {numeric:true});
   });
 }
+// 置顶库永远排在最前面；置顶组内 / 未置顶组内按现有排序（名称或原顺序）
+function sortLibsWithPin(libs, byName){
+  const arr = libs.slice();
+  if(byName){
+    const pinned = sortByText(arr.filter(l=>l.pinned), 'name');
+    const unpinned = sortByText(arr.filter(l=>!l.pinned), 'name');
+    return pinned.concat(unpinned);
+  }
+  // 原顺序：稳定地把置顶项提到最前，保持各自相对顺序
+  return arr.sort((a,b)=> (b.pinned?1:0) - (a.pinned?1:0));
+}
+function togglePinLib(type, id){
+  let libs, saveFn;
+  if(type==='word'){ libs = state.libraries; saveFn = saveLibraries; }
+  else if(type==='story'){ libs = state.storyLibs; saveFn = saveStoryLibs; }
+  else { libs = state.articleLibs; saveFn = saveArticleLibs; }
+  const lib = libs.find(l=>l.id===id);
+  if(!lib) return;
+  lib.pinned = !lib.pinned;
+  saveFn();
+  refreshCurrentPage();
+}
 function toggleLibSort(){
   const p = getSortPref();
   p.libs = p.libs === 'name' ? 'default' : 'name';
@@ -1208,12 +1234,12 @@ function renderWordLibHome(){
   } else {
     const sortPref = getSortPref();
     const base = showHidden ? state.libraries : visibleLibs;
-    let libs = sortPref.libs === 'name' ? sortByText(base, 'name') : base.slice();
+    let libs = sortLibsWithPin(base, sortPref.libs === 'name');
     libHTML = libs.map(lib=>{
       const wordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id)).length;
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card ${isLibCollapsed('word',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''}" draggable="true"
+        <div class="lib-card ${isLibCollapsed('word',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''} ${lib.pinned?'pinned-lib':''}" draggable="true"
              ondragstart="dragLibStart(event,'word','${lib.id}')"
              ondragover="dragLibOver(event)"
              ondragleave="dragLibLeave(event)"
@@ -1223,8 +1249,9 @@ function renderWordLibHome(){
           <div class="lib-icon">📁</div>
           <div class="lib-info">
             <div class="lib-name">${escapeHtml(lib.name)}</div>
-            <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词${lib.hidden?' · 🙈 已隐藏':''}</div>
+            <div class="lib-meta">${groupCount} 个分组 · ${wordCount} 个单词${lib.hidden?' · 🙈 已隐藏':''}${lib.pinned?' · 📌 已置顶':''}</div>
           </div>
+          <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('word','${lib.id}')">${lib.pinned?'📌':'📍'}</button>
           <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('word','${lib.id}')">${isLibCollapsed('word',lib.id)?'▸':'▾'}</button>
           ${libGroupsInlineHTML('word', lib)}
         </div>
@@ -2800,12 +2827,12 @@ function renderStoryHome(){
   } else {
     const sortPref = getSortPref();
     const base = showHidden ? state.storyLibs : visibleLibs;
-    let libs = sortPref.storyLibs === 'name' ? sortByText(base, 'name') : base.slice();
+    let libs = sortLibsWithPin(base, sortPref.storyLibs === 'name');
     libHTML = libs.map(lib=>{
       const count = getStoryLibStoryCount(lib.id);
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card ${isLibCollapsed('story',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''}" draggable="true"
+        <div class="lib-card ${isLibCollapsed('story',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''} ${lib.pinned?'pinned-lib':''}" draggable="true"
              ondragstart="dragLibStart(event,'story','${lib.id}')"
              ondragover="dragLibOver(event)"
              ondragleave="dragLibLeave(event)"
@@ -2815,8 +2842,9 @@ function renderStoryHome(){
           <div class="lib-icon">🗂️</div>
           <div class="lib-info">
             <div class="lib-name">${escapeHtml(lib.name)}</div>
-            <div class="lib-meta">${groupCount} 个分组 · ${count} 个故事${lib.hidden?' · 🙈 已隐藏':''}</div>
+            <div class="lib-meta">${groupCount} 个分组 · ${count} 个故事${lib.hidden?' · 🙈 已隐藏':''}${lib.pinned?' · 📌 已置顶':''}</div>
           </div>
+          <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('story','${lib.id}')">${lib.pinned?'📌':'📍'}</button>
           <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('story','${lib.id}')">${isLibCollapsed('story',lib.id)?'▸':'▾'}</button>
           ${libGroupsInlineHTML('story', lib)}
         </div>`;
@@ -3498,12 +3526,12 @@ function renderArticleHome(){
   } else {
     const sortPref = getSortPref();
     const base = showHidden ? state.articleLibs : visibleLibs;
-    let libs = sortPref.articleLibs === 'name' ? sortByText(base, 'name') : base.slice();
+    let libs = sortLibsWithPin(base, sortPref.articleLibs === 'name');
     libHTML = libs.map(lib=>{
       const count = getArticleLibCount(lib.id);
       const groupCount = lib.groups.length;
       return `
-        <div class="lib-card ${isLibCollapsed('article',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''}" draggable="true"
+        <div class="lib-card ${isLibCollapsed('article',lib.id)?'collapsed':''} ${lib.hidden?'hidden-lib':''} ${lib.pinned?'pinned-lib':''}" draggable="true"
              ondragstart="dragLibStart(event,'article','${lib.id}')"
              ondragover="dragLibOver(event)"
              ondragleave="dragLibLeave(event)"
@@ -3513,8 +3541,9 @@ function renderArticleHome(){
           <div class="lib-icon">📚</div>
           <div class="lib-info">
             <div class="lib-name">${escapeHtml(lib.name)}</div>
-            <div class="lib-meta">${groupCount} 个分组 · ${count} 篇文章${lib.hidden?' · 🙈 已隐藏':''}</div>
+            <div class="lib-meta">${groupCount} 个分组 · ${count} 篇文章${lib.hidden?' · 🙈 已隐藏':''}${lib.pinned?' · 📌 已置顶':''}</div>
           </div>
+          <button class="lib-pin-btn ${lib.pinned?'pinned':''}" title="置顶/取消置顶" onclick="event.stopPropagation();togglePinLib('article','${lib.id}')">${lib.pinned?'📌':'📍'}</button>
           <button class="lib-collapse-btn" title="折叠/展开分组" onclick="event.stopPropagation();toggleLibCollapse('article','${lib.id}')">${isLibCollapsed('article',lib.id)?'▸':'▾'}</button>
           ${libGroupsInlineHTML('article', lib)}
         </div>`;
