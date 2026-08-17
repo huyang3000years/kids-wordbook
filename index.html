@@ -116,6 +116,10 @@ body{
   font-size:20px;color:var(--text-l);white-space:pre-wrap;word-break:break-word;
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
 }
+.word-size{
+  flex-shrink:0;align-self:center;margin-left:4px;white-space:nowrap;cursor:pointer;
+  font-size:13px;font-weight:600;color:#8a8a8a;background:#F4F4F5;border-radius:10px;padding:3px 9px;
+}
 .word-card-actions{display:flex;gap:8px;margin-top:8px}
 /* Label buttons */
 .label-dot{
@@ -1339,7 +1343,35 @@ function renderGroup(){
 }
 
 /* ========== Word List Renderer ========== */
-function renderWordList(containerId, words){
+/* ===== 单词存储大小（主要是图片 base64 体积） ===== */
+function dataUrlBytes(data){
+  if(!data) return 0;
+  const comma = data.indexOf(',');
+  const b64 = comma >= 0 ? data.slice(comma + 1) : data;
+  // base64 每 4 字符约 3 字节，去掉末尾 padding '=' 更精确
+  const len = b64.replace(/=+$/, '').length;
+  return Math.floor(len * 3 / 4);
+}
+function formatSize(bytes){
+  if(!bytes || bytes <= 0) return '0 B';
+  if(bytes < 1024) return bytes + ' B';
+  if(bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+async function computeWordSizeMap(){
+  // 统计每个单词的图片占用（单词图片以 base64 存于 IndexedDB，文字字段可忽略）
+  let allImages = [];
+  try{ allImages = await dbGetAllImages(); }catch(err){ return {}; }
+  const map = {};
+  for(const img of allImages){
+    if(!img || !img.wordId) continue;
+    if(!map[img.wordId]) map[img.wordId] = {bytes:0, count:0};
+    map[img.wordId].bytes += dataUrlBytes(img.data);
+    map[img.wordId].count += 1;
+  }
+  return map;
+}
+function renderWordList(containerId, words, sizeMap){
   const container = document.getElementById(containerId);
   if(!container) return;
   if(words.length === 0){
@@ -1347,7 +1379,12 @@ function renderWordList(containerId, words){
     return;
   }
   const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
-  container.innerHTML = words.map(w=>`
+  container.innerHTML = words.map(w=>{
+    const sizeInfo = sizeMap && sizeMap[w.id];
+    const sizeHTML = sizeInfo
+      ? `<div class="word-size" title="该单词图片占用的存储空间，点按可进入编辑以优化图片" onclick="editWord('${w.id}')">📦 ${formatSize(sizeInfo.bytes)}</div>`
+      : '';
+    return `
     <div class="word-card ${w.label}">
       <div class="word-card-top">
         <div class="word-thumb" data-word-id="${w.id}" onclick="loadThumbDetail('${w.id}')">🖼️</div>
@@ -1359,9 +1396,10 @@ function renderWordList(containerId, words){
           <div class="label-dot ${w.label}" onclick="cycleLabel('${w.id}',this)">${labelEmoji[w.label]}</div>
           <button class="word-fav ${w.favorite?'on':''}" id="fav-${w.id}" title="收藏" onclick="toggleWordFavorite('${w.id}', this)">${w.favorite?'★︎':'☆︎'}</button>
         </div>
+        ${sizeHTML}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   // Async load thumbnails
   loadThumbnails(words.map(w=>w.id));
 }
@@ -1415,6 +1453,7 @@ async function loadThumbDetail(wordId){
 function navigateAllWords(filter, from){
   state.allWordsFilter = filter || null;
   state.allWordsFrom = from || 'wordlib';
+  state.allWordsQuery = '';
   renderAllWords();
   showPage('page-all-words');
 }
@@ -1430,6 +1469,7 @@ function getFilteredAllWords(){
 function showFavoriteWords(from){
   state.allWordsFilter = 'favorite';
   state.allWordsFrom = from || 'wordlib';
+  state.allWordsQuery = '';
   renderAllWords();
   showPage('page-all-words');
 }
@@ -1437,31 +1477,55 @@ function renderAllWords(){
   const filter = state.allWordsFilter;
   const words = getFilteredAllWords();
   const title = filter === 'red' ? '🔴 不会的单词' : filter === 'favorite' ? '⭐ 我的收藏' : '📖 全部单词';
+  const p = getSortPref();
+  const sizeActive = p.words === 'size';
   document.getElementById('page-all-words').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="${state.allWordsFrom==='home' ? 'navigateHome()' : 'navigateWordLibHome()'}">←</button>
       <div class="back-title">${title} (${words.length})</div>
     </div>
-    <div class="form-group" style="margin-bottom:16px">
+    <div class="form-group" style="margin-bottom:8px">
       <input type="text" class="form-input" id="search-input" placeholder="🔍 搜索单词或备注..." autocomplete="off" oninput="searchWords(this.value)">
     </div>
-    <button class="btn btn-primary btn-block" style="margin-bottom:16px" onclick="startNewWord()">➕ 添加单词</button>
+    <div class="btn-row" style="margin-bottom:12px;align-items:center">
+      <button class="btn btn-primary" style="flex:1" onclick="startNewWord()">➕ 添加单词</button>
+      <button class="sort-chip ${sizeActive?'active':''}" title="按图片占用空间从大到小排序" onclick="toggleAllWordsSort()">${sizeActive?'📦 按大小':'🕐 原顺序'}</button>
+    </div>
     <div id="all-words-list"></div>
   `;
-  renderWordList('all-words-list', words);
+  // 异步统计各单词图片体积，渲染时支持「按大小排序」与搜索
+  computeWordSizeMap().then(sizeMap=>{
+    state._wordSizeMap = sizeMap;
+    renderAllWordList();
+  });
+}
+function renderAllWordList(){
+  const q = (state.allWordsQuery || '').trim().toLowerCase();
+  let words = getFilteredAllWords();
+  if(q){
+    words = words.filter(w=>
+      w.english.toLowerCase().includes(q) ||
+      (w.chinese || '').toLowerCase().includes(q)
+    );
+  }
+  const sizeMap = state._wordSizeMap || {};
+  const p = getSortPref();
+  if(p.words === 'size'){
+    words = words.slice().sort((a,b)=>
+      (sizeMap[b.id] ? sizeMap[b.id].bytes : 0) - (sizeMap[a.id] ? sizeMap[a.id].bytes : 0)
+    );
+  }
+  renderWordList('all-words-list', words, sizeMap);
 }
 function searchWords(query){
-  const q = query.trim().toLowerCase();
-  const list = document.getElementById('all-words-list');
-  if(!q){
-    renderWordList('all-words-list', getFilteredAllWords());
-    return;
-  }
-  const filtered = getFilteredAllWords().filter(w=>
-    w.english.toLowerCase().includes(q) ||
-    (w.chinese || '').toLowerCase().includes(q)
-  );
-  renderWordList('all-words-list', filtered);
+  state.allWordsQuery = query;
+  renderAllWordList();
+}
+function toggleAllWordsSort(){
+  const p = getSortPref();
+  p.words = p.words === 'size' ? null : 'size';
+  saveSortPref(p);
+  renderAllWords();
 }
 
 /* ========== Marked Words Page (从首页看板进入) ========== */
@@ -1470,7 +1534,7 @@ function showMarkedWords(label){
   renderMarkedWords();
   showPage('page-marked-words');
 }
-function renderMarkedWords(){
+async function renderMarkedWords(){
   const label = state.markedLabel;
   const words = state.words.filter(w=>w.label===label);
   const title = label==='red' ? '🔴 不会的单词' : label==='yellow' ? '🟡 想想的单词' : '🟢 会的单词';
@@ -1482,7 +1546,8 @@ function renderMarkedWords(){
     <button class="btn btn-green btn-large btn-block" style="margin-bottom:16px" onclick="reviewMarkedWords()">🔀 乱序复习</button>
     <div id="marked-words-list"></div>
   `;
-  renderWordList('marked-words-list', words);
+  const sizeMap = await computeWordSizeMap();
+  renderWordList('marked-words-list', words, sizeMap);
 }
 function reviewMarkedWords(){
   const label = state.markedLabel;
