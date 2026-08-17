@@ -3627,7 +3627,17 @@ async function startArticleEdit(preLib, preGroup){
 async function startArticleEditById(articleId){
   const article = state.articles.find(a=>a.id===articleId);
   if(!article) return;
-  state.articleEditReturn = {type:'articleBack', articleId: articleId};
+  // 编辑后返回到「上一级文章列表」而非阅读页：依据进入阅读页的来源决定返回目标
+  const from = state.articleViewFrom;
+  if(from === 'page-article-group' && state.currentArticleLibId && state.currentArticleGroupId){
+    state.articleEditReturn = {type:'group', libId: state.currentArticleLibId, groupId: state.currentArticleGroupId};
+  } else if(from === 'page-article-lib' && state.currentArticleLibId){
+    state.articleEditReturn = {type:'lib', libId: state.currentArticleLibId};
+  } else if(from === 'page-article-home' && state.articleHomeMode === 'all'){
+    state.articleEditReturn = {type:'all'};
+  } else {
+    state.articleEditReturn = {type:'home'};
+  }
   state.articlePlacementsCollapsed = true;
   state.articleEditCollapsedLibs = {};
   const images = await dbGetArticleImages(articleId);
@@ -3929,6 +3939,7 @@ function goBackFromArticleEdit(){
   if(r.type === 'articleBack' && r.articleId) navigateArticleView(r.articleId);
   else if(r.type === 'group') navigateArticleGroup(r.libId, r.groupId);
   else if(r.type === 'lib') navigateArticleLib(r.libId);
+  else if(r.type === 'all') showAllArticles();
   else navigateArticleHome();
 }
 async function deleteArticle(articleId){
