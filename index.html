@@ -250,6 +250,10 @@ textarea.form-input{resize:vertical;min-height:60px}
 .test-text-opt:active{background:var(--bg-2)}
 .test-text-opt.test-correct{border-color:#2E7D32;box-shadow:0 0 0 4px #2E7D32;color:#2E7D32}
 .test-text-opt.test-wrong{border-color:#C62828;box-shadow:0 0 0 4px #C62828;color:#C62828}
+.test-wrong-list{margin:18px 0 8px;width:100%;max-width:520px}
+.test-wrong-title{font-size:18px;font-weight:700;color:#C62828;margin-bottom:8px;text-align:left}
+.test-wrong-words{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-start}
+.test-wrong-word{display:inline-block;background:#FFF3F3;border:1px solid #FFCDD2;border-radius:10px;padding:6px 12px;font-size:18px;font-weight:600;color:#C62828}
 .review-progress{
   text-align:center;font-size:20px;font-weight:600;color:var(--text-l);margin-bottom:12px;
 }
@@ -2615,7 +2619,7 @@ function startTestGroup(libId, groupId){
       showToast('本组至少需要 4 个带图片的单词才能测试');
       return;
     }
-    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0 };
+    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[] };
     renderTest();
     showPage('page-test');
   })();
@@ -2678,6 +2682,8 @@ function testPick(i){
     wrap.classList.add('test-wrong');
     if(overlay) overlay.textContent = '✗';
     playWrongSound();
+    // 记录答错的单词，完成页展示
+    state.test.wrongWords.push(q.english);
     // 标记联动：绿色选错 → 标红
     if(q.label === 'green'){ q.label = 'red'; saveWords(); }
     // 红色/黄色选错保持不变
@@ -2688,12 +2694,16 @@ function testPick(i){
   setTimeout(()=>{ state.test.index++; renderTest(); }, 1300);
 }
 function renderTestComplete(){
+  const wrongList = (state.test && state.test.wrongWords && state.test.wrongWords.length)
+    ? `<div class="test-wrong-list"><div class="test-wrong-title">❌ 本次答错的单词（${state.test.wrongWords.length} 个）</div><div class="test-wrong-words">${state.test.wrongWords.map(w=>`<span class="test-wrong-word">${escapeHtml(w)}</span>`).join('')}</div></div>`
+    : '';
   document.getElementById('page-test').innerHTML = `
     <div class="completion-screen">
       <div class="big-emoji">🎉</div>
     <h2>测试完成！</h2>
     ${state.test ? `<p style="font-size:34px;font-weight:bold;margin:8px 0">得分 ${Math.round(state.test.correctCount/state.test.queue.length*100)} 分</p>` : ''}
     <p>你一共完成了 ${state.test ? state.test.queue.length : 0} 道题，答对 ${state.test ? state.test.correctCount : 0} 道</p>
+    ${wrongList}
       <button class="btn btn-primary btn-large" onclick="endTest()">返回</button>
     </div>
   `;
