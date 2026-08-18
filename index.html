@@ -253,7 +253,9 @@ textarea.form-input{resize:vertical;min-height:60px}
 .test-wrong-list{margin:18px 0 8px;width:100%;max-width:520px}
 .test-wrong-title{font-size:18px;font-weight:700;color:#C62828;margin-bottom:8px;text-align:left}
 .test-wrong-words{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-start}
-.test-wrong-word{display:inline-block;background:#FFF3F3;border:1px solid #FFCDD2;border-radius:10px;padding:6px 12px;font-size:18px;font-weight:600;color:#C62828}
+.test-wrong-word{display:inline-block;background:#FFF3F3;border:1px solid #FFCDD2;border-radius:10px;padding:6px 12px;font-size:18px;font-weight:600;color:#C62828;cursor:pointer;transition:transform .12s ease,background .12s ease}
+.test-wrong-word:hover{background:#FFE0E0;transform:translateY(-2px)}
+.test-wrong-word:active{transform:translateY(0)}
 .review-progress{
   text-align:center;font-size:20px;font-weight:600;color:var(--text-l);margin-bottom:12px;
 }
@@ -2682,8 +2684,8 @@ function testPick(i){
     wrap.classList.add('test-wrong');
     if(overlay) overlay.textContent = '✗';
     playWrongSound();
-    // 记录答错的单词，完成页展示
-    state.test.wrongWords.push(q.english);
+    // 记录答错的单词，完成页展示（含 id 便于点击跳转详情）
+    state.test.wrongWords.push({ id:q.id, english:q.english });
     // 标记联动：绿色选错 → 标红
     if(q.label === 'green'){ q.label = 'red'; saveWords(); }
     // 红色/黄色选错保持不变
@@ -2695,7 +2697,7 @@ function testPick(i){
 }
 function renderTestComplete(){
   const wrongList = (state.test && state.test.wrongWords && state.test.wrongWords.length)
-    ? `<div class="test-wrong-list"><div class="test-wrong-title">❌ 本次答错的单词（${state.test.wrongWords.length} 个）</div><div class="test-wrong-words">${state.test.wrongWords.map(w=>`<span class="test-wrong-word">${escapeHtml(w)}</span>`).join('')}</div></div>`
+    ? `<div class="test-wrong-list"><div class="test-wrong-title">❌ 本次答错的单词（${state.test.wrongWords.length} 个，点击可看详情）</div><div class="test-wrong-words">${state.test.wrongWords.map(w=>`<span class="test-wrong-word" onclick="openTestWrongWord('${w.id}')">${escapeHtml(w.english)}</span>`).join('')}</div></div>`
     : '';
   document.getElementById('page-test').innerHTML = `
     <div class="completion-screen">
@@ -2712,6 +2714,12 @@ function endTest(){
   state.test = null;
   renderGroup();
   showPage('page-group');
+}
+function openTestWrongWord(id){
+  if(!id) return;
+  // 标记从测试完成页进入，返回时回到完成页
+  state.articleWordViewReturn = { fromTest: true };
+  showArticleWordView(id);
 }
 
 /* ========== Export to Word ========== */
@@ -4869,7 +4877,10 @@ function toggleArticleWordFavorite(wordId){
 function articleWordReturn(){
   const r = state.articleWordViewReturn;
   state.articleWordViewReturn = null;
-  if(r && r.articleId){
+  if(r && r.fromTest){
+    renderTestComplete();
+    showPage('page-test');
+  } else if(r && r.articleId){
     reopenArticleView(r.articleId).then(()=>{
       if(r.scrollY > 0){
         requestAnimationFrame(()=>window.scrollTo(0, r.scrollY));
