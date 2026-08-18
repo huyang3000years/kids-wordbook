@@ -3637,7 +3637,7 @@ function renderAllArticleList(){
       (sizeMap[b.id] ? sizeMap[b.id].bytes : 0) - (sizeMap[a.id] ? sizeMap[a.id].bytes : 0)
     );
   }
-  renderArticleCards('all-article-list', articles, sizeMap);
+  renderArticleCards('all-article-list', articles, sizeMap, true);
 }
 function toggleAllArticlesSort(mode){
   const p = getSortPref();
