@@ -1447,6 +1447,24 @@ async function computeStorySizeMap(){
   }
   return map;
 }
+async function computeArticleSizeMap(){
+  // 统计每篇文章的占用空间：图片（base64 存于 IndexedDB）+ 文字（标题与各文字块）
+  let allImages = [];
+  try{ allImages = await dbGetAllArticleImages(); }catch(err){ return {}; }
+  const map = {};
+  for(const img of allImages){
+    if(!img || !img.articleId) continue;
+    if(!map[img.articleId]) map[img.articleId] = {bytes:0, count:0};
+    map[img.articleId].bytes += dataUrlBytes(img.data);
+    map[img.articleId].count += 1;
+  }
+  for(const a of state.articles){
+    if(!map[a.id]) map[a.id] = {bytes:0, count:0};
+    const text = (a.title || '') + (a.blocks || []).map(b => (b.content || b.caption || '')).join('');
+    map[a.id].bytes += text.length * 2; // UTF-16 约 2 字节/字符
+  }
+  return map;
+}
 function renderWordList(containerId, words, sizeMap){
   const container = document.getElementById(containerId);
   if(!container) return;
@@ -3584,8 +3602,11 @@ function renderArticleHome(){
     ${libHTML}
   `;
 }
-function showAllArticles(){
+async function showAllArticles(){
   state.articleHomeMode = 'all';
+  const p = getSortPref();
+  const nameActive = p.articles === 'name';
+  const sizeActive = p.articles === 'size';
   document.getElementById('page-article-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateArticleHome()">←</button>
@@ -3595,9 +3616,34 @@ function showAllArticles(){
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startArticleEdit(null)">➕ 新建文章</button>
     </div>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="sort-chip ${nameActive?'active':''}" onclick="toggleAllArticlesSort('name')">🔤 按名称</button>
+      <button class="sort-chip ${sizeActive?'active':''}" onclick="toggleAllArticlesSort('size')">📦 按大小</button>
+    </div>
     <div id="all-article-list"></div>
   `;
-  renderArticleCards('all-article-list', state.articles.slice().reverse());
+  // 异步统计各文章占用空间（图片 + 文字），用于「按大小排序」与大小徽标
+  state._articleSizeMap = await computeArticleSizeMap();
+  renderAllArticleList();
+}
+function renderAllArticleList(){
+  let articles = state.articles.slice().reverse();   // 原顺序（最新在前）
+  const sizeMap = state._articleSizeMap || {};
+  const p = getSortPref();
+  if(p.articles === 'name'){
+    articles = sortByText(articles, 'title');
+  } else if(p.articles === 'size'){
+    articles = articles.slice().sort((a,b)=>
+      (sizeMap[b.id] ? sizeMap[b.id].bytes : 0) - (sizeMap[a.id] ? sizeMap[a.id].bytes : 0)
+    );
+  }
+  renderArticleCards('all-article-list', articles, sizeMap);
+}
+function toggleAllArticlesSort(mode){
+  const p = getSortPref();
+  p.articles = (p.articles === mode) ? null : mode;  // 再次点击同一项取消排序
+  saveSortPref(p);
+  renderAllArticleList();
 }
 function showFavoriteArticles(){
   const favs = state.articles.filter(a=>a.favorite);
@@ -3713,7 +3759,7 @@ function renderArticleGroup(){
     <button class="btn btn-green btn-block" style="margin-bottom:16px" onclick="startArticleEdit('${lib.id}','${isDefault ? 'default' : group.id}')">➕ 新建文章到此分组</button>
     <div id="article-group-list"></div>
   `;
-  renderArticleCards('article-group-list', listArticles);
+  renderArticleCards('article-group-list', listArticles, null, true);
 }
 
 /* ===== 文章库/分组管理 ===== */
@@ -3814,16 +3860,22 @@ function getArticleMarkCounts(article){
   }
   return {red, yellow};
 }
-function renderArticleCard(article){
+function renderArticleCard(article, sizeMap){
   const imgCount = article.blocks.filter(b=>b.type==='image').length;
   const textCount = article.blocks.filter(b=>b.type==='text').length;
   const mk = getArticleMarkCounts(article);
+  const size = sizeMap && sizeMap[article.id];
+  const sizeText = size ? formatSize(size.bytes) : (sizeMap ? '0 B' : '');
+  const sizeBadge = sizeMap ? `<div class="story-size">📦 ${sizeText}</div>` : '';
   return `
     <div class="story-card" onclick="navigateArticleView('${article.id}')">
       <div class="story-cover" id="article-cover-${article.id}">📖</div>
       <div class="story-info">
         <div class="story-name">${escapeHtml(article.title)}</div>
-        <div class="story-meta">${textCount} 段文字 · ${imgCount} 张图片</div>
+        <div class="story-meta-row">
+          <span class="story-meta">${textCount} 段文字 · ${imgCount} 张图片</span>
+          ${sizeBadge}
+        </div>
       </div>
       <div class="article-mark-badges">
         <div class="mark-badge"><span class="mark-emoji">🔴</span><span class="mark-num">${mk.red}</span></div>
@@ -3831,10 +3883,13 @@ function renderArticleCard(article){
       </div>
     </div>`;
 }
-async function renderArticleCards(containerId, articles){
-  document.getElementById(containerId).innerHTML = articles.map(renderArticleCard).join('') ||
+async function renderArticleCards(containerId, articles, sizeMap, noCovers){
+  document.getElementById(containerId).innerHTML = articles.map(a=>renderArticleCard(a, sizeMap)).join('') ||
     `<div class="empty-state"><div class="emoji">📖</div><p>还没有文章<br>点击下方按钮创建一个吧！</p></div>`;
-  await loadArticleCovers(articles.map(a=>a.id));
+  // noCovers=true 时不加载封面图，统一保留书本 📖 图标（用于文章分组列表页）
+  if(!noCovers){
+    await loadArticleCovers(articles.map(a=>a.id));
+  }
 }
 async function loadArticleCovers(articleIds){
   for(const id of articleIds){
