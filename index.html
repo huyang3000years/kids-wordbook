@@ -233,6 +233,15 @@ textarea.form-input{resize:vertical;min-height:60px}
 .review-images .review-img:last-child:nth-child(odd){
   grid-column:1 / -1;justify-self:center;width:calc(50% - 5px);
 }
+/* ========== 本组测试（看图选词）反馈样式 ========== */
+.test-img-wrap{position:relative;cursor:pointer;border-radius:12px;overflow:hidden}
+.test-img-wrap .review-img{cursor:pointer}
+.test-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:bold;background:rgba(255,255,255,.5);opacity:0;transition:opacity .15s;pointer-events:none}
+.test-img-wrap.test-correct{box-shadow:0 0 0 4px #2E7D32}
+.test-img-wrap.test-correct .test-overlay{opacity:1;color:#2E7D32}
+.test-img-wrap.test-wrong{box-shadow:0 0 0 4px #C62828}
+.test-img-wrap.test-wrong .test-overlay{opacity:1;color:#C62828}
+.test-img-wrap.disabled{cursor:default}
 .review-progress{
   text-align:center;font-size:20px;font-weight:600;color:var(--text-l);margin-bottom:12px;
 }
@@ -500,6 +509,7 @@ textarea.form-input{resize:vertical;min-height:60px}
   <div id="page-add-to-lib" class="page hidden"></div>
   <div id="page-review-select" class="page hidden"></div>
   <div id="page-review" class="page hidden"></div>
+  <div id="page-test" class="page hidden"></div>
   <div id="page-story-home" class="page hidden"></div>
   <div id="page-story-lib" class="page hidden"></div>
   <div id="page-story-group" class="page hidden"></div>
@@ -1388,6 +1398,7 @@ function renderGroup(){
         <span>🙈 排除已会</span>
       </div>
     </div>
+    <button class="btn btn-purple btn-block" style="margin-bottom:12px" onclick="startTestGroup('${lib.id}','${group.id}')">📝 本组测试（看图选词）</button>
     <div style="text-align:right;margin-bottom:8px">
       <button class="sort-chip ${sortPref.words && sortPref.words[lib.id]==='name'?'active':''}" onclick="toggleLibWordSort('${lib.id}')">${sortPref.words && sortPref.words[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
@@ -2534,6 +2545,117 @@ function renderReviewComplete(){
       <button class="btn btn-primary btn-large" onclick="endReview()">返回</button>
     </div>
   `;
+}
+
+/* ========== 音效（Web Audio 合成，无需外部文件） ========== */
+let _audioCtx = null;
+function getAudioCtx(){
+  if(!_audioCtx){
+    try{ _audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ _audioCtx = null; }
+  }
+  if(_audioCtx && _audioCtx.state==='suspended'){ _audioCtx.resume(); }
+  return _audioCtx;
+}
+function playTone(freq, dur, type, delay){
+  const ctx = getAudioCtx();
+  if(!ctx) return;
+  const t0 = ctx.currentTime + (delay||0);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  osc.connect(gain); gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(0.3, t0+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.start(t0); osc.stop(t0+dur+0.03);
+}
+function playCorrectSound(){ playTone(523.25,0.15,'sine',0); playTone(783.99,0.22,'sine',0.12); }   // 上行 C5→G5
+function playWrongSound(){ playTone(220,0.25,'square',0); playTone(155.56,0.35,'square',0.13); }     // 低沉下行
+
+/* ========== 本组测试（看图选词） ========== */
+function startTestGroup(libId, groupId){
+  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
+  (async()=>{
+    const cands = [];
+    for(const w of words){
+      const imgs = await dbGetImagesByWord(w.id);
+      if(imgs && imgs.length>0) cands.push({ word:w, img:imgs[0].data });
+    }
+    if(cands.length < 4){
+      showToast('本组至少需要 4 个带图片的单词才能测试');
+      return;
+    }
+    state.test = { queue: shuffle(cands), index:0, options:null, answered:false };
+    renderTest();
+    showPage('page-test');
+  })();
+}
+function renderTest(){
+  if(!state.test || state.test.index >= state.test.queue.length){
+    renderTestComplete(); return;
+  }
+  const idx = state.test.index;
+  const correct = state.test.queue[idx];
+  const others = shuffle(state.test.queue.filter(c=>c!==correct)).slice(0,3);
+  const options = shuffle([correct, ...others]);
+  state.test.options = options;
+  state.test.answered = false;
+  const total = state.test.queue.length;
+  document.getElementById('page-test').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="endTest()">←</button>
+      <div class="back-title">📝 本组测试</div>
+    </div>
+    <div class="review-progress">第 ${idx+1} / ${total} 题</div>
+    <div class="review-card">
+      <div class="review-hint">🖼️ 选出对应的图片</div>
+      <div class="review-english">${escapeHtml(correct.word.english)}</div>
+      <div class="review-chinese">${escapeHtml(correct.word.chinese||'')}</div>
+    </div>
+    <div class="review-images">
+      ${options.map((o,i)=>`
+        <div class="test-img-wrap" id="test-opt-${i}" onclick="testPick(${i})">
+          <img class="review-img" src="${o.img}" alt="">
+          <div class="test-overlay"></div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+function testPick(i){
+  if(!state.test || state.test.answered) return;
+  const wrap = document.getElementById('test-opt-'+i);
+  const overlay = wrap.querySelector('.test-overlay');
+  const isCorrect = state.test.options[i].word.id === state.test.queue[state.test.index].word.id;
+  if(isCorrect){
+    state.test.answered = true;
+    wrap.classList.add('test-correct');
+    overlay.textContent = '✓';
+    playCorrectSound();
+    document.querySelectorAll('.test-img-wrap').forEach(w=>{ w.style.pointerEvents='none'; });
+    setTimeout(()=>{ state.test.index++; renderTest(); }, 1200);
+  } else {
+    wrap.classList.add('test-wrong');
+    overlay.textContent = '✗';
+    playWrongSound();
+    wrap.style.pointerEvents = 'none';
+  }
+}
+function renderTestComplete(){
+  document.getElementById('page-test').innerHTML = `
+    <div class="completion-screen">
+      <div class="big-emoji">🎉</div>
+      <h2>测试完成！</h2>
+      <p>你一共完成了 ${state.test ? state.test.queue.length : 0} 道题</p>
+      <button class="btn btn-primary btn-large" onclick="endTest()">返回</button>
+    </div>
+  `;
+}
+function endTest(){
+  state.test = null;
+  renderGroup();
+  showPage('page-group');
 }
 
 /* ========== Export to Word ========== */
