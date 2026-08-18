@@ -1220,6 +1220,7 @@ function renderHome(){
 
 /* ========== 我的词库首页（词库列表） ========== */
 function navigateWordLibHome(){
+  window.pendingLibScrollY = null;
   state.currentLibraryId = null;
   state.currentGroupId = null;
   renderWordLibHome();
@@ -1282,10 +1283,15 @@ function renderWordLibHome(){
 }
 
 /* ========== Library Page ========== */
-function navigateLibrary(libId){
+function navigateLibrary(libId, restoreScroll){
+  const restoreY = (restoreScroll != null && restoreScroll > 0) ? restoreScroll : (window.pendingLibScrollY || 0);
   state.currentLibraryId = libId;
   renderLibrary();
   showPage('page-library');
+  window.pendingLibScrollY = null;
+  if(restoreY > 0){
+    requestAnimationFrame(()=>window.scrollTo(0, restoreY));
+  }
 }
 function renderLibrary(){
   const lib = state.libraries.find(l=>l.id===state.currentLibraryId);
@@ -1345,6 +1351,8 @@ function renderLibrary(){
 
 /* ========== Group Page ========== */
 function navigateGroup(libId, groupId){
+  // 离开库页进入分组时，记录库页滚动位置，便于返回时恢复
+  if(state.currentPage === 'page-library'){ window.pendingLibScrollY = window.scrollY || 0; }
   state.currentLibraryId = libId;
   state.currentGroupId = groupId;
   renderGroup();
@@ -1990,7 +1998,7 @@ function goBackFromEdit(){
   } else if(r && r.type === 'group'){
     navigateGroup(r.libraryId, r.groupId);
   } else if(r && r.type === 'library'){
-    navigateLibrary(r.libraryId);
+    navigateLibrary(r.libraryId, r.scrollY);
   } else if(r && r.type === 'addToLib'){
     navigateAddToLib(r.libraryId);
   } else if(r && r.type === 'article'){
