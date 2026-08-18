@@ -2594,22 +2594,24 @@ function playWordAudio(word){
     a.play().catch(()=>{});
   }catch(e){}
 }
+function playTestWordAudio(){
+  if(state.test && state.test.queue[state.test.index]){
+    playWordAudio(state.test.queue[state.test.index].word.english);
+  }
+}
 function startTestGroup(libId, groupId){
   const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
-  if(words.length < 4){
-    showToast('本组至少需要 4 个单词才能测试');
-    return;
-  }
   (async()=>{
-    const imgMap = {};
+    const cands = [];
     for(const w of words){
       const imgs = await dbGetImagesByWord(w.id);
-      if(imgs && imgs.length>0) imgMap[w.id] = imgs[0].data;
+      if(imgs && imgs.length>0) cands.push({ word:w, img:imgs[0].data });
     }
-    // 有图的单词不足 4 个时，无法凑齐图片干扰项，全部改用「听发音选意思」文字题
-    const picCount = Object.keys(imgMap).length;
-    const forceText = picCount < 4;
-    state.test = { queue: shuffle(words), index:0, options:null, answered:false, correctCount:0, imgMap, forceText };
+    if(cands.length < 4){
+      showToast('本组至少需要 4 个带图片的单词才能测试');
+      return;
+    }
+    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0 };
     renderTest();
     showPage('page-test');
   })();
@@ -2620,43 +2622,24 @@ function renderTest(){
   }
   const idx = state.test.index;
   const correct = state.test.queue[idx];
-  const correctImg = state.test.imgMap[correct.id] || null;
-  const isPic = !state.test.forceText && !!correctImg;
-  let options;
-  if(isPic){
-    const picWords = state.test.queue.filter(w=>state.test.imgMap[w.id]);
-    const distract = shuffle(picWords.filter(w=>w.id!==correct.id)).slice(0,3);
-    options = shuffle([correct, ...distract]).map(w=>({word:w, img:state.test.imgMap[w.id]}));
-  } else {
-    const distract = shuffle(state.test.queue.filter(w=>w.id!==correct.id)).slice(0,3);
-    options = shuffle([correct, ...distract]).map(w=>({word:w, img: state.test.imgMap[w.id] || null}));
-  }
+  const correctId = correct.word.id;
+  const distract = shuffle(state.test.queue.filter(c=>c.word.id!==correctId)).slice(0,3);
+  const options = shuffle([correct, ...distract]);
   state.test.options = options;
   state.test.answered = false;
   const total = state.test.queue.length;
-  const speakerBtn = `<button class="speaker-btn" onclick="playWordAudio('${escapeHtml(correct.english)}')" title="播放发音">🔊</button>`;
-  let cardHTML, optionsHTML;
-  if(isPic){
-    cardHTML = `
-      <div class="review-card">
-        <div class="review-hint">🖼️ 选出对应的图片</div>
-        <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(correct.english)} ${speakerBtn}</div>
-        <div class="review-chinese">${escapeHtml(correct.chinese||'')}</div>
-      </div>`;
-    optionsHTML = `<div class="review-images">${options.map((o,i)=>`
-        <div class="test-img-wrap" id="test-opt-${i}" onclick="testPick(${i})">
-          <img class="review-img" src="${o.img}" alt="">
-          <div class="test-overlay"></div>
-        </div>`).join('')}</div>`;
-  } else {
-    cardHTML = `
-      <div class="review-card">
-        <div class="review-hint">🔊 听发音，选出正确的意思</div>
-        <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(correct.english)} ${speakerBtn}</div>
-      </div>`;
-    optionsHTML = `<div class="test-text-options">${options.map((o,i)=>`
-        <button class="test-text-opt" id="test-opt-${i}" onclick="testPick(${i})">${escapeHtml(o.word.chinese||o.word.english)}</button>`).join('')}</div>`;
-  }
+  const speakerBtn = `<button class="speaker-btn" onclick="playTestWordAudio()" title="播放发音">🔊</button>`;
+  const cardHTML = `
+    <div class="review-card">
+      <div class="review-hint">🖼️ 选出对应的图片</div>
+      <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(correct.word.english)} ${speakerBtn}</div>
+      <div class="review-chinese">${escapeHtml(correct.word.chinese||'')}</div>
+    </div>`;
+  const optionsHTML = `<div class="review-images">${options.map((o,i)=>`
+      <div class="test-img-wrap" id="test-opt-${i}" onclick="testPick(${i})">
+        <img class="review-img" src="${o.img}" alt="">
+        <div class="test-overlay"></div>
+      </div>`).join('')}</div>`;
   document.getElementById('page-test').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="endTest()">←</button>
@@ -2666,7 +2649,7 @@ function renderTest(){
     ${cardHTML}
     ${optionsHTML}
   `;
-  playWordAudio(correct.english);
+  playTestWordAudio();
 }
 function testPick(i){
   if(!state.test || state.test.answered) return;
