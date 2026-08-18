@@ -2599,6 +2599,10 @@ function playTestWordAudio(){
     playWordAudio(state.test.queue[state.test.index].word.english);
   }
 }
+function playViewWordAudio(){
+  const w = state.words.find(x=>x.id===state.articleWordViewId);
+  if(w) playWordAudio(w.english);
+}
 function startTestGroup(libId, groupId){
   const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
   (async()=>{
@@ -2674,14 +2678,6 @@ function testPick(i){
     wrap.classList.add('test-wrong');
     if(overlay) overlay.textContent = '✗';
     playWrongSound();
-    // 选错时把正确答案也高亮出来，方便记忆
-    const correctIdx = state.test.options.findIndex(o=>o.word.id === correctId);
-    if(correctIdx >= 0 && correctIdx !== i){
-      const cwrap = document.getElementById('test-opt-'+correctIdx);
-      const coverlay = cwrap.querySelector('.test-overlay');
-      cwrap.classList.add('test-correct');
-      if(coverlay) coverlay.textContent = '✓';
-    }
     // 标记联动：绿色选错 → 标红
     if(q.label === 'green'){ q.label = 'red'; saveWords(); }
     // 红色/黄色选错保持不变
@@ -4814,7 +4810,7 @@ async function showArticleWordView(wordId){
       </div>
     </div>
     <div class="article-word-card">
-      <div class="article-word-english">${escapeHtml(w.english)}</div>
+      <div class="article-word-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(w.english)} <button class="speaker-btn" onclick="playViewWordAudio()" title="播放发音">🔊</button></div>
       <div class="article-word-chinese">${escapeHtml(w.chinese||'（无备注）')}</div>
       <div class="article-word-label">
         <div class="label-selector" id="aw-label-selector">
@@ -4827,6 +4823,7 @@ async function showArticleWordView(wordId){
     </div>
   `;
   showPage('page-article-word');
+  playViewWordAudio();
 }
 function setArticleWordLabel(wordId, label){
   const word = state.words.find(w=>w.id===wordId);
