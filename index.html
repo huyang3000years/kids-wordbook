@@ -243,6 +243,13 @@ textarea.form-input{resize:vertical;min-height:60px}
 .test-img-wrap.test-wrong .test-overlay{opacity:1;color:#C62828}
 .test-img-wrap.disabled{cursor:default}
 .test-img-wrap .review-img{aspect-ratio:1/1;height:auto}
+.speaker-btn{margin-left:10px;background:var(--bg-2);border:none;border-radius:50%;width:42px;height:42px;font-size:20px;cursor:pointer;vertical-align:middle;flex-shrink:0}
+.speaker-btn:active{background:#E0E0E0}
+.test-text-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.test-text-opt{font-size:24px;font-weight:600;color:var(--text);background:#fff;border:2px solid #E0E0E0;border-radius:14px;padding:18px 10px;cursor:pointer;min-height:66px;box-shadow:var(--shadow)}
+.test-text-opt:active{background:var(--bg-2)}
+.test-text-opt.test-correct{border-color:#2E7D32;box-shadow:0 0 0 4px #2E7D32;color:#2E7D32}
+.test-text-opt.test-wrong{border-color:#C62828;box-shadow:0 0 0 4px #C62828;color:#C62828}
 .review-progress{
   text-align:center;font-size:20px;font-weight:600;color:var(--text-l);margin-bottom:12px;
 }
@@ -2426,6 +2433,7 @@ async function renderReview(){
   const revealed = !!state.reviewRevealed;
   const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
   const labelText = {red:'不会',yellow:'想一想',green:'会'};
+  const speakerBtn = `<button class="speaker-btn" onclick="playWordAudio('${escapeHtml(word.english)}')" title="播放发音">🔊</button>`;
 
   const progressHTML = `
     <div class="back-bar">
@@ -2440,7 +2448,7 @@ async function renderReview(){
       ${progressHTML}
       <div class="review-card">
         <div class="review-hint">🤔 认识这个单词吗？</div>
-        <div class="review-english">${escapeHtml(word.english)}</div>
+        <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(word.english)} ${speakerBtn}</div>
         <div class="review-chinese">${escapeHtml(word.chinese)}</div>
       </div>
       <div class="review-labels">
@@ -2466,7 +2474,7 @@ async function renderReview(){
       ${progressHTML}
       <div class="review-card">
         <div class="review-hint">👀 看看图片，记住它吧！</div>
-        <div class="review-english">${escapeHtml(word.english)}</div>
+        <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(word.english)} ${speakerBtn}</div>
         <div class="review-chinese">${escapeHtml(word.chinese)}</div>
         ${imagesHTML ? `<div class="review-images">${imagesHTML}</div>` : '<div style="font-size:48px;margin:16px 0">📝</div>'}
       </div>
@@ -2482,6 +2490,7 @@ async function renderReview(){
       </div>
     `;
   }
+  playWordAudio(word.english);
 }
 function revealReview(){
   state.reviewRevealed = true;
@@ -2575,19 +2584,32 @@ function playCorrectSound(){ playTone(523.25,0.15,'sine',0); playTone(783.99,0.2
 function playWrongSound(){ playTone(220,0.25,'square',0); playTone(155.56,0.35,'square',0.13); }     // 低沉下行
 
 /* ========== 本组测试（看图选词） ========== */
+function playWordAudio(word){
+  if(!word) return;
+  const url = 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(word) + '&type=2';
+  try{
+    if(window._curWordAudio){ try{ window._curWordAudio.pause(); }catch(e){} }
+    const a = new Audio(url);
+    window._curWordAudio = a;
+    a.play().catch(()=>{});
+  }catch(e){}
+}
 function startTestGroup(libId, groupId){
   const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
+  if(words.length < 4){
+    showToast('本组至少需要 4 个单词才能测试');
+    return;
+  }
   (async()=>{
-    const cands = [];
+    const imgMap = {};
     for(const w of words){
       const imgs = await dbGetImagesByWord(w.id);
-      if(imgs && imgs.length>0) cands.push({ word:w, img:imgs[0].data });
+      if(imgs && imgs.length>0) imgMap[w.id] = imgs[0].data;
     }
-    if(cands.length < 4){
-      showToast('本组至少需要 4 个带图片的单词才能测试');
-      return;
-    }
-    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0 };
+    // 有图的单词不足 4 个时，无法凑齐图片干扰项，全部改用「听发音选意思」文字题
+    const picCount = Object.keys(imgMap).length;
+    const forceText = picCount < 4;
+    state.test = { queue: shuffle(words), index:0, options:null, answered:false, correctCount:0, imgMap, forceText };
     renderTest();
     showPage('page-test');
   })();
@@ -2598,31 +2620,53 @@ function renderTest(){
   }
   const idx = state.test.index;
   const correct = state.test.queue[idx];
-  const others = shuffle(state.test.queue.filter(c=>c!==correct)).slice(0,3);
-  const options = shuffle([correct, ...others]);
+  const correctImg = state.test.imgMap[correct.id] || null;
+  const isPic = !state.test.forceText && !!correctImg;
+  let options;
+  if(isPic){
+    const picWords = state.test.queue.filter(w=>state.test.imgMap[w.id]);
+    const distract = shuffle(picWords.filter(w=>w.id!==correct.id)).slice(0,3);
+    options = shuffle([correct, ...distract]).map(w=>({word:w, img:state.test.imgMap[w.id]}));
+  } else {
+    const distract = shuffle(state.test.queue.filter(w=>w.id!==correct.id)).slice(0,3);
+    options = shuffle([correct, ...distract]).map(w=>({word:w, img: state.test.imgMap[w.id] || null}));
+  }
   state.test.options = options;
   state.test.answered = false;
   const total = state.test.queue.length;
+  const speakerBtn = `<button class="speaker-btn" onclick="playWordAudio('${escapeHtml(correct.english)}')" title="播放发音">🔊</button>`;
+  let cardHTML, optionsHTML;
+  if(isPic){
+    cardHTML = `
+      <div class="review-card">
+        <div class="review-hint">🖼️ 选出对应的图片</div>
+        <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(correct.english)} ${speakerBtn}</div>
+        <div class="review-chinese">${escapeHtml(correct.chinese||'')}</div>
+      </div>`;
+    optionsHTML = `<div class="review-images">${options.map((o,i)=>`
+        <div class="test-img-wrap" id="test-opt-${i}" onclick="testPick(${i})">
+          <img class="review-img" src="${o.img}" alt="">
+          <div class="test-overlay"></div>
+        </div>`).join('')}</div>`;
+  } else {
+    cardHTML = `
+      <div class="review-card">
+        <div class="review-hint">🔊 听发音，选出正确的意思</div>
+        <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(correct.english)} ${speakerBtn}</div>
+      </div>`;
+    optionsHTML = `<div class="test-text-options">${options.map((o,i)=>`
+        <button class="test-text-opt" id="test-opt-${i}" onclick="testPick(${i})">${escapeHtml(o.word.chinese||o.word.english)}</button>`).join('')}</div>`;
+  }
   document.getElementById('page-test').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="endTest()">←</button>
       <div class="back-title">📝 本组测试</div>
     </div>
     <div class="review-progress">第 ${idx+1} / ${total} 题</div>
-    <div class="review-card">
-      <div class="review-hint">🖼️ 选出对应的图片</div>
-      <div class="review-english">${escapeHtml(correct.word.english)}</div>
-      <div class="review-chinese">${escapeHtml(correct.word.chinese||'')}</div>
-    </div>
-    <div class="review-images">
-      ${options.map((o,i)=>`
-        <div class="test-img-wrap" id="test-opt-${i}" onclick="testPick(${i})">
-          <img class="review-img" src="${o.img}" alt="">
-          <div class="test-overlay"></div>
-        </div>
-      `).join('')}
-    </div>
+    ${cardHTML}
+    ${optionsHTML}
   `;
+  playWordAudio(correct.english);
 }
 function testPick(i){
   if(!state.test || state.test.answered) return;
@@ -2633,20 +2677,19 @@ function testPick(i){
   // 题目单词（用于测试后标记联动）
   const q = state.test.queue[state.test.index].word;
 
-  // 标记用户点击的那张图
   const wrap = document.getElementById('test-opt-'+i);
   const overlay = wrap.querySelector('.test-overlay');
   if(isCorrect){
     state.test.correctCount++;
     wrap.classList.add('test-correct');
-    overlay.textContent = '✓';
+    if(overlay) overlay.textContent = '✓';
     playCorrectSound();
     // 标记联动：红色选对 → 标黄
     if(q.label === 'red'){ q.label = 'yellow'; saveWords(); }
     // 黄色/绿色选对保持不变
   } else {
     wrap.classList.add('test-wrong');
-    overlay.textContent = '✗';
+    if(overlay) overlay.textContent = '✗';
     playWrongSound();
     // 选错时把正确答案也高亮出来，方便记忆
     const correctIdx = state.test.options.findIndex(o=>o.word.id === correctId);
@@ -2654,7 +2697,7 @@ function testPick(i){
       const cwrap = document.getElementById('test-opt-'+correctIdx);
       const coverlay = cwrap.querySelector('.test-overlay');
       cwrap.classList.add('test-correct');
-      coverlay.textContent = '✓';
+      if(coverlay) coverlay.textContent = '✓';
     }
     // 标记联动：绿色选错 → 标红
     if(q.label === 'green'){ q.label = 'red'; saveWords(); }
@@ -2662,7 +2705,7 @@ function testPick(i){
   }
 
   // 选对选错都直接禁用并进入下一题
-  document.querySelectorAll('.test-img-wrap').forEach(w=>{ w.style.pointerEvents='none'; });
+  document.querySelectorAll('.test-img-wrap, .test-text-opt').forEach(w=>{ w.style.pointerEvents='none'; });
   setTimeout(()=>{ state.test.index++; renderTest(); }, 1300);
 }
 function renderTestComplete(){
