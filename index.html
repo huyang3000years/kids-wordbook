@@ -3141,7 +3141,6 @@ function renderStoryHome(){
   document.getElementById('page-story-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
-      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <div class="back-title">🎨 看图说话</div>
     </div>
     <div class="btn-row" style="margin-bottom:12px">
@@ -3327,6 +3326,7 @@ function renderStoryGroup(){
   document.getElementById('page-story-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryLib('${lib.id}')">←</button>
+      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       ${!isDefault ? `
       <button class="btn btn-small btn-white" title="重命名" onclick="renameStoryGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteStoryGroup('${lib.id}','${group.id}')">🗑️</button>` : ''}
@@ -3843,7 +3843,6 @@ function renderArticleHome(){
   document.getElementById('page-article-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
-      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <div class="back-title">📖 文章阅读</div>
     </div>
     <div class="btn-row" style="margin-bottom:12px">
@@ -4006,6 +4005,7 @@ function renderArticleGroup(){
   document.getElementById('page-article-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateArticleLib('${lib.id}')">←</button>
+      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       ${!isDefault ? `
       <button class="btn btn-small btn-white" title="重命名" onclick="renameArticleGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteArticleGroup('${lib.id}','${group.id}')">🗑️</button>` : ''}
