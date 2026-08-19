@@ -162,6 +162,8 @@ textarea.form-input{resize:vertical;min-height:60px}
   display:inline-flex;align-items:center;gap:6px;background:#E8F8EF;color:#1B8A5A;
   border:1px solid #B7E4C7;border-radius:999px;padding:6px 14px;font-size:18px;font-weight:600;
 }
+/* 复习/测试/单词详情中的自然拼读标签（居中展示） */
+.review-phonics{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
 /* Image upload */
 .image-slots{display:flex;gap:10px;flex-wrap:wrap}
 .image-slot{
@@ -1739,6 +1741,7 @@ function renderWordEdit(){
     <div class="back-bar">
       <button class="back-btn" onclick="cancelEditWord()">←</button>
       <div class="back-title">📝 ${state.words.find(w=>w.id===ew.id) ? '编辑单词' : '添加单词'}</div>
+      <button class="btn btn-small btn-green" style="margin-left:auto" onclick="saveWord()" title="保存">💾 保存</button>
       ${state.words.find(w=>w.id===ew.id) ? `<button class="btn btn-small btn-red" title="删除该单词" onclick="deleteEditingWord()">🗑️ 删除</button>` : ''}
     </div>
     <div class="card">
@@ -1781,24 +1784,27 @@ function renderWordEdit(){
   renderWordEditPhonics();
   renderRelatedChips();
 }
-function renderWordEditPhonics(){
-  const container = document.getElementById('phonics-form-group');
-  if(!container) return;
-  const ew = state.editingWord;
-  if(!ew){ container.innerHTML = ''; return; }
+function getPhonicsGroupNames(placements){
   // 找到「自然拼读」词库（名称含该关键字）
   const phLib = state.libraries.find(l => (l.name||'').indexOf('自然拼读') >= 0);
-  if(!phLib){ container.innerHTML = ''; return; }
-  // 该单词在自然拼读词库下所属的分组（按 placements 提取，去重）
+  if(!phLib) return [];
   const seen = new Set();
   const names = [];
-  for(const p of (ew.placements || [])){
+  for(const p of (placements || [])){
     if(p.libraryId !== phLib.id) continue;
     if(seen.has(p.groupId)) continue;
     seen.add(p.groupId);
     const g = phLib.groups.find(x => x.id === p.groupId);
     if(g) names.push(g.name);
   }
+  return names;
+}
+function renderWordEditPhonics(){
+  const container = document.getElementById('phonics-form-group');
+  if(!container) return;
+  const ew = state.editingWord;
+  if(!ew){ container.innerHTML = ''; return; }
+  const names = getPhonicsGroupNames(ew.placements);
   if(names.length === 0){ container.innerHTML = ''; return; }
   container.innerHTML = `
     <label class="form-label">🔤 自然拼读（所属分组）</label>
@@ -2488,6 +2494,10 @@ async function renderReview(){
   const labelEmoji = {red:'🔴',yellow:'🟡',green:'🟢'};
   const labelText = {red:'不会',yellow:'想一想',green:'会'};
   const speakerBtn = `<button class="speaker-btn" onclick="playWordAudio('${escapeHtml(word.english)}')" title="播放发音">🔊</button>`;
+  const phNames = getPhonicsGroupNames(word.placements);
+  const phonicsHTML = phNames.length
+    ? `<div class="review-phonics">${phNames.map(n=>`<span class="phonics-chip">${escapeHtml(n)}</span>`).join('')}</div>`
+    : '';
 
   const progressHTML = `
     <div class="back-bar">
@@ -2501,9 +2511,9 @@ async function renderReview(){
     document.getElementById('page-review').innerHTML = `
       ${progressHTML}
       <div class="review-card">
-        <div class="review-hint">🤔 认识这个单词吗？</div>
         <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(word.english)} ${speakerBtn}</div>
         <div class="review-chinese">${escapeHtml(word.chinese)}</div>
+        ${phonicsHTML}
       </div>
       <div class="review-labels">
         <div class="review-label-btn red ${word.label==='red'?'active':''}" onclick="setReviewLabel('red')">🔴</div>
@@ -2527,9 +2537,9 @@ async function renderReview(){
     document.getElementById('page-review').innerHTML = `
       ${progressHTML}
       <div class="review-card">
-        <div class="review-hint">👀 看看图片，记住它吧！</div>
         <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(word.english)} ${speakerBtn}</div>
         <div class="review-chinese">${escapeHtml(word.chinese)}</div>
+        ${phonicsHTML}
         ${imagesHTML ? `<div class="review-images">${imagesHTML}</div>` : '<div style="font-size:48px;margin:16px 0">📝</div>'}
       </div>
       <div class="review-labels">
@@ -2687,11 +2697,15 @@ function renderTest(){
   state.test.answered = false;
   const total = state.test.queue.length;
   const speakerBtn = `<button class="speaker-btn" onclick="playTestWordAudio()" title="播放发音">🔊</button>`;
+  const phNames = getPhonicsGroupNames(correct.word.placements);
+  const phonicsHTML = phNames.length
+    ? `<div class="review-phonics">${phNames.map(n=>`<span class="phonics-chip">${escapeHtml(n)}</span>`).join('')}</div>`
+    : '';
   const cardHTML = `
     <div class="review-card">
-      <div class="review-hint">🖼️ 选出对应的图片</div>
       <div class="review-english" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap">${escapeHtml(correct.word.english)} ${speakerBtn}</div>
       <div class="review-chinese">${escapeHtml(correct.word.chinese||'')}</div>
+      ${phonicsHTML}
     </div>`;
   const optionsHTML = `<div class="review-images">${options.map((o,i)=>`
       <div class="test-img-wrap" id="test-opt-${i}" onclick="testPick(${i})">
@@ -3120,6 +3134,7 @@ function renderStoryHome(){
   document.getElementById('page-story-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
+      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <div class="back-title">🎨 看图说话</div>
     </div>
     <div class="btn-row" style="margin-bottom:12px">
@@ -3821,6 +3836,7 @@ function renderArticleHome(){
   document.getElementById('page-article-home').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateHome()">←</button>
+      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <div class="back-title">📖 文章阅读</div>
     </div>
     <div class="btn-row" style="margin-bottom:12px">
@@ -4866,6 +4882,11 @@ async function showArticleWordView(wordId){
   if(images.length > 0){
     imgsHTML = `<div class="article-word-imgs">${images.map(im=>`<img src="${im.data}" alt="">`).join('')}</div>`;
   }
+  // 自然拼读标签（该单词所属「自然拼读」词库下的分组）
+  const phNames = getPhonicsGroupNames(w.placements);
+  const phonicsHTML = phNames.length
+    ? `<div class="review-phonics">${phNames.map(n=>`<span class="phonics-chip">${escapeHtml(n)}</span>`).join('')}</div>`
+    : '';
   document.getElementById('page-article-word').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="articleWordReturn()">←</button>
@@ -4885,6 +4906,7 @@ async function showArticleWordView(wordId){
           <div class="label-option green ${w.label==='green'?'active':''}" onclick="setArticleWordLabel('${w.id}','green')">🟢</div>
         </div>
       </div>
+      ${phonicsHTML}
       ${imgsHTML}
     </div>
   `;
