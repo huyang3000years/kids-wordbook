@@ -156,6 +156,12 @@ textarea.form-input{resize:vertical;min-height:60px}
 }
 .related-chip .x{cursor:pointer;font-weight:700;line-height:1;opacity:.7;font-size:20px}
 .related-chip .x:hover{opacity:1}
+/* 自然拼读分组标签（编辑单词页第三步，仅展示） */
+.phonics-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.phonics-chip{
+  display:inline-flex;align-items:center;gap:6px;background:#E8F8EF;color:#1B8A5A;
+  border:1px solid #B7E4C7;border-radius:999px;padding:6px 14px;font-size:18px;font-weight:600;
+}
 /* Image upload */
 .image-slots{display:flex;gap:10px;flex-wrap:wrap}
 .image-slot{
@@ -1748,6 +1754,7 @@ function renderWordEdit(){
         </div>
         <div class="related-chips" id="related-chips"></div>
       </div>
+      <div class="form-group" id="phonics-form-group"></div>
       <div class="form-group">
         <label class="form-label">备注（可不填）</label>
         <textarea class="form-input" id="input-chinese" placeholder="输入备注内容，支持任何文字">${escapeHtml(ew.chinese)}</textarea>
@@ -1771,7 +1778,32 @@ function renderWordEdit(){
   renderWordEditPlacements();
   renderWordEditImages();
   updateWordEditImageSizeLabel();
+  renderWordEditPhonics();
   renderRelatedChips();
+}
+function renderWordEditPhonics(){
+  const container = document.getElementById('phonics-form-group');
+  if(!container) return;
+  const ew = state.editingWord;
+  if(!ew){ container.innerHTML = ''; return; }
+  // 找到「自然拼读」词库（名称含该关键字）
+  const phLib = state.libraries.find(l => (l.name||'').indexOf('自然拼读') >= 0);
+  if(!phLib){ container.innerHTML = ''; return; }
+  // 该单词在自然拼读词库下所属的分组（按 placements 提取，去重）
+  const seen = new Set();
+  const names = [];
+  for(const p of (ew.placements || [])){
+    if(p.libraryId !== phLib.id) continue;
+    if(seen.has(p.groupId)) continue;
+    seen.add(p.groupId);
+    const g = phLib.groups.find(x => x.id === p.groupId);
+    if(g) names.push(g.name);
+  }
+  if(names.length === 0){ container.innerHTML = ''; return; }
+  container.innerHTML = `
+    <label class="form-label">🔤 自然拼读（所属分组）</label>
+    <div class="phonics-chips">${names.map(n=>`<span class="phonics-chip">${escapeHtml(n)}</span>`).join('')}</div>
+  `;
 }
 function setEditLabel(label){
   state.editingWord.label = label;
@@ -1822,6 +1854,7 @@ function togglePlacement(libId, groupId){
     placements.push({libraryId:libId, groupId:groupId});
   }
   renderWordEditPlacements();
+  renderWordEditPhonics();
 }
 function renderWordEditPlacements(){
   // Re-render just the placement section (keeps input values intact)
