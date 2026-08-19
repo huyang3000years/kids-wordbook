@@ -2143,8 +2143,10 @@ async function saveWord(){
     return;
   }
   // Check for duplicate (case-insensitive)
-  if(state.words.some(w=>w.id!==ew.id && w.english.toLowerCase()===english.toLowerCase())){
-    showToast('单词已存在');
+  const dupWord = state.words.find(w=>w.id!==ew.id && w.english.toLowerCase()===english.toLowerCase());
+  if(dupWord){
+    showToast('单词已存在，已打开其编辑页');
+    editWord(dupWord.id);
     return;
   }
   ew.english = english;
