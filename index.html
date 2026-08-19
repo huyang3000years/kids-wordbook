@@ -1353,6 +1353,7 @@ function renderLibrary(){
   document.getElementById('page-library').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateWordLibHome()">←</button>
+      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white" title="隐藏/显示词库" onclick="toggleHideLib('${lib.id}')">${lib.hidden?'👁️':'🙈'}</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportLibWord('${lib.id}')">📤</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameLibrary('${lib.id}')">✏️</button>
@@ -1399,6 +1400,7 @@ function renderGroup(){
   document.getElementById('page-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateLibrary('${lib.id}')">←</button>
+      <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportGroupWord('${lib.id}','${group.id}')">📤</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteGroup('${lib.id}','${group.id}')">🗑️</button>
