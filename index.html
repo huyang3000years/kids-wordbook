@@ -2092,6 +2092,8 @@ function recordEditReturn(){
     state.editReturn = {type:'library', libraryId: state.currentLibraryId, scrollY};
   } else if(p === 'page-add-to-lib'){
     state.editReturn = {type:'addToLib', libraryId: state.currentLibraryId, scrollY};
+  } else if(p === 'page-article-view'){
+    state.editReturn = {type:'article', articleId: state.articleViewArticle ? state.articleViewArticle.id : null, scrollY};
   } else {
     state.editReturn = {type:'home', scrollY};
   }
@@ -4628,6 +4630,7 @@ function renderArticleView(){
     <div class="back-bar article-reader-bar">
       <button class="back-btn" onclick="articleBack()">←</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
+      <button class="btn btn-small btn-green" title="添加单词" onclick="startNewWord()">➕</button>
       <button class="btn btn-small btn-white article-fav-btn" title="收藏" onclick="toggleArticleFavorite('${article.id}')">${article.favorite?'⭐':'<span class="star-empty">☆</span>'}</button>
       <button class="btn btn-small btn-white" title="打开文章链接" onclick="openArticleLink()">🔗</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportArticleWord('${article.id}')">📤</button>
