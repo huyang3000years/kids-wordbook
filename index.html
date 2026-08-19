@@ -1937,11 +1937,6 @@ function toggleEditLibCollapse(libId){
   renderWordEditPlacements();
 }
 function triggerImageUpload(){
-  const remaining = 6 - state.editingWord.images.length;
-  if(remaining <= 0){
-    showToast('最多只能添加6张图片');
-    return;
-  }
   const input = document.getElementById('image-file-input');
   input.value = '';
   input.click();
@@ -1949,9 +1944,7 @@ function triggerImageUpload(){
 document.getElementById('image-file-input').addEventListener('change', async (e)=>{
   const files = Array.from(e.target.files);
   if(!files.length) return;
-  const remaining = 6 - state.editingWord.images.length;
-  const toProcess = files.slice(0, remaining);
-  for(const file of toProcess){
+  for(const file of files){
     if(!file.type.startsWith('image/')) continue;
     try{
       const data = await resizeImage(file, 1024, 0.8);
@@ -1976,23 +1969,21 @@ function updateWordEditImageSizeLabel(){
 function renderWordEditImages(){
   const ew = state.editingWord;
   let slotsHTML = '';
-  for(let i=0; i<6; i++){
-    if(ew.images[i]){
-      slotsHTML += `
-        <div class="image-slot filled draggable" draggable="true"
-             ondragstart="dragImageStart(event, ${i})"
-             ondragover="dragImageOver(event, ${i})"
-             ondragleave="dragImageLeave(event)"
-             ondrop="dragImageDrop(event, ${i})"
-             ondragend="dragImageEnd(event)">
-          <span class="img-order">${i+1}</span>
-          <img src="${ew.images[i].data}" alt="" draggable="false" onclick="showImageFullscreen('${ew.images[i].data}')">
-          <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
-        </div>`;
-    } else {
-      slotsHTML += `<div class="image-slot" onclick="triggerImageUpload()">+</div>`;
-    }
+  for(let i=0; i<ew.images.length; i++){
+    slotsHTML += `
+      <div class="image-slot filled draggable" draggable="true"
+           ondragstart="dragImageStart(event, ${i})"
+           ondragover="dragImageOver(event, ${i})"
+           ondragleave="dragImageLeave(event)"
+           ondrop="dragImageDrop(event, ${i})"
+           ondragend="dragImageEnd(event)">
+        <span class="img-order">${i+1}</span>
+        <img src="${ew.images[i].data}" alt="" draggable="false" onclick="showImageFullscreen('${ew.images[i].data}')">
+        <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
+      </div>`;
   }
+  // 始终保留一个「新增图片」入口（取消张数上限）
+  slotsHTML += `<div class="image-slot" onclick="triggerImageUpload()">+</div>`;
   document.getElementById('image-slots').innerHTML = slotsHTML;
 }
 // 图片拖拽排序
