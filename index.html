@@ -1751,7 +1751,7 @@ function renderWordEdit(){
         <textarea class="form-input" id="input-chinese" placeholder="输入备注内容，支持任何文字">${escapeHtml(ew.chinese)}</textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">📷 图片（最多6张，按住拖动可排序）</label>
+        <label class="form-label" id="image-size-label">📷 图片（已用 0 B）</label>
         <div class="image-slots" id="image-slots"></div>
       </div>
       <div class="form-group">
@@ -1768,6 +1768,7 @@ function renderWordEdit(){
   `;
   renderWordEditPlacements();
   renderWordEditImages();
+  updateWordEditImageSizeLabel();
   renderRelatedChips();
 }
 function setEditLabel(label){
@@ -1901,7 +1902,18 @@ document.getElementById('image-file-input').addEventListener('change', async (e)
     }
   }
   renderWordEditImages();
+  updateWordEditImageSizeLabel();
 });
+function updateWordEditImageSizeLabel(){
+  const el = document.getElementById('image-size-label');
+  if(!el) return;
+  const ew = state.editingWord;
+  let bytes = 0;
+  if(ew && ew.images){
+    for(const im of ew.images){ bytes += dataUrlBytes(im.data); }
+  }
+  el.textContent = '📷 图片（已用 ' + formatSize(bytes) + '）';
+}
 function renderWordEditImages(){
   const ew = state.editingWord;
   let slotsHTML = '';
@@ -1962,6 +1974,7 @@ function dragImageEnd(){
 function removeImageFromEditing(index){
   state.editingWord.images.splice(index, 1);
   renderWordEditImages();
+  updateWordEditImageSizeLabel();
 }
 function resizeImage(file, maxWidth, quality){
   return new Promise((resolve,reject)=>{
