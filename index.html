@@ -1787,8 +1787,8 @@ function renderWordEdit(){
   renderRelatedChips();
 }
 function getPhonicsGroups(placements){
-  // 找到「自然拼读」词库（名称含该关键字）
-  const phLib = state.libraries.find(l => (l.name||'').indexOf('自然拼读') >= 0);
+  // 唯一对应名称「自然拼读」的词库（精确匹配，不含其他含该字段的名称）
+  const phLib = state.libraries.find(l => (l.name||'') === '自然拼读');
   if(!phLib) return [];
   const seen = new Set();
   const items = [];
