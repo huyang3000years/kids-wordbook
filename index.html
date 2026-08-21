@@ -4303,8 +4303,14 @@ function renderArticleBlocks(){
 }
 function autoResizeArticleText(el){
   if(!el) return;
+  // 重设高度时瞬间塌陷会改变页面布局，导致页面滚动跳回顶端；
+  // 因此先记录并恢复页面滚动位置，让文本输入时页面保持稳定
+  const y = window.scrollY || window.pageYOffset || 0;
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
+  if((window.scrollY || window.pageYOffset || 0) !== y){
+    window.scrollTo(0, y);
+  }
 }
 function autoResizeAllArticleText(){
   document.querySelectorAll('#article-blocks-container .article-block-text').forEach(el=>autoResizeArticleText(el));
