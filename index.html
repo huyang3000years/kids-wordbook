@@ -1373,6 +1373,7 @@ function renderLibrary(){
       <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createGroup('${lib.id}')">➕ 新建分组</button>
+    <button class="btn btn-purple btn-block" style="margin-bottom:12px" onclick="startTestLib('${lib.id}')">📝 本词库测试（看图选词）</button>
     ${groupsHTML}
     <div class="section-title">📖 词库内全部单词 (${libWords.length})
       <button class="sort-chip ${sortPref.words && sortPref.words[lib.id]==='name'?'active':''}" onclick="toggleLibWordSort('${lib.id}')">${sortPref.words && sortPref.words[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
@@ -2689,7 +2690,24 @@ function startTestGroup(libId, groupId){
       showToast('本组至少需要 4 个带图片的单词才能测试');
       return;
     }
-    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[] };
+    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:false };
+    renderTest();
+    showPage('page-test');
+  })();
+}
+function startTestLib(libId){
+  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
+  (async()=>{
+    const cands = [];
+    for(const w of words){
+      const imgs = await dbGetImagesByWord(w.id);
+      if(imgs && imgs.length>0) cands.push({ word:w, img:imgs[0].data });
+    }
+    if(cands.length < 4){
+      showToast('本词库至少需要 4 个带图片的单词才能测试');
+      return;
+    }
+    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:true };
     renderTest();
     showPage('page-test');
   })();
@@ -2722,7 +2740,7 @@ function renderTest(){
   document.getElementById('page-test').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="endTest()">←</button>
-      <div class="back-title">📝 本组测试</div>
+      <div class="back-title">📝 ${state.test.libTest?'本词库测试':'本组测试'}</div>
     </div>
     <div class="review-progress">第 ${idx+1} / ${total} 题</div>
     ${cardHTML}
@@ -2780,9 +2798,15 @@ function renderTestComplete(){
   `;
 }
 function endTest(){
+  const wasLib = state.test && state.test.libTest;
   state.test = null;
-  renderGroup();
-  showPage('page-group');
+  if(wasLib){
+    renderLibrary();
+    showPage('page-library');
+  } else {
+    renderGroup();
+    showPage('page-group');
+  }
 }
 function openTestWrongWord(id){
   if(!id) return;
