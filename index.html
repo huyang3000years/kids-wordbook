@@ -244,6 +244,12 @@ textarea.form-input{resize:vertical;min-height:60px}
   grid-column:1 / -1;justify-self:center;width:calc(50% - 5px);
 }
 /* ========== 本组测试（看图选词）反馈样式 ========== */
+.test-btn-row{display:flex;gap:10px}
+.history-card{background:#fff;border:1px solid #ECECEC;border-radius:14px;padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.history-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.history-date{font-size:15px;font-weight:600;color:var(--text)}
+.history-score{font-size:17px;font-weight:700;color:var(--primary)}
+.history-meta{font-size:14px;color:var(--text-l);margin-top:4px}
 .test-img-wrap{position:relative;cursor:pointer;border-radius:12px;overflow:hidden}
 .test-img-wrap .review-img{cursor:pointer}
 .test-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:bold;background:rgba(255,255,255,.5);opacity:0;transition:opacity .15s;pointer-events:none}
@@ -534,6 +540,7 @@ textarea.form-input{resize:vertical;min-height:60px}
   <div id="page-review-select" class="page hidden"></div>
   <div id="page-review" class="page hidden"></div>
   <div id="page-test" class="page hidden"></div>
+  <div id="page-test-history" class="page hidden"></div>
   <div id="page-story-home" class="page hidden"></div>
   <div id="page-story-lib" class="page hidden"></div>
   <div id="page-story-group" class="page hidden"></div>
@@ -587,6 +594,7 @@ const LS_STORY_LIBS = 'wordbook_storyLibs';
 const LS_STORIES = 'wordbook_stories';
 const LS_ARTICLE_LIBS = 'wordbook_articleLibs';
 const LS_ARTICLES = 'wordbook_articles';
+const LS_TEST_HISTORY = 'wordbook_testHistory';
 const DB_NAME = 'KidsWordbookDB';
 const DB_VERSION = 4;
 const STORE_IMAGES = 'images';
@@ -645,6 +653,11 @@ const state = {
   articleWordViewId: null,
   articleDragBlockIndex: null,
   articleReplaceIndex: null,
+  testHistory: [],
+  testHistoryScope: null,
+  testHistoryLibId: null,
+  testHistoryGroupId: null,
+  testHistoryTitle: '',
 };
 
 /* ========== 库折叠状态（持久化到 localStorage） ========== */
@@ -726,6 +739,13 @@ function loadArticles(){
 }
 function saveArticles(){
   localStorage.setItem(LS_ARTICLES, JSON.stringify(state.articles));
+}
+function loadTestHistory(){
+  try{ return JSON.parse(localStorage.getItem(LS_TEST_HISTORY)) || []; }
+  catch(e){ return []; }
+}
+function saveTestHistory(){
+  try{ localStorage.setItem(LS_TEST_HISTORY, JSON.stringify(state.testHistory || [])); }catch(e){}
 }
 
 /* ========== IndexedDB ========== */
@@ -1373,7 +1393,10 @@ function renderLibrary(){
       <button class="sort-chip ${sortPref.groups && sortPref.groups[lib.id]==='name'?'active':''}" onclick="toggleGroupSort('${lib.id}')">${sortPref.groups && sortPref.groups[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
     <button class="btn btn-green btn-block" style="margin-bottom:12px" onclick="createGroup('${lib.id}')">➕ 新建分组</button>
-    <button class="btn btn-purple btn-block" style="margin-bottom:12px" onclick="startTestLib('${lib.id}')">📝 本词库测试（看图选词）</button>
+    <div class="test-btn-row" style="margin-bottom:12px">
+      <button class="btn btn-purple" style="flex:1" onclick="startTestLib('${lib.id}')">📝 本词库测试</button>
+      <button class="btn btn-white" style="flex:1" onclick="showTestHistory('lib','${lib.id}',null,'${escapeHtml(lib.name)}')">📜 历史记录</button>
+    </div>
     ${groupsHTML}
     <div class="section-title">📖 词库内全部单词 (${libWords.length})
       <button class="sort-chip ${sortPref.words && sortPref.words[lib.id]==='name'?'active':''}" onclick="toggleLibWordSort('${lib.id}')">${sortPref.words && sortPref.words[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
@@ -1425,7 +1448,10 @@ function renderGroup(){
         <span>🙈 排除已会</span>
       </div>
     </div>
-    <button class="btn btn-purple btn-block" style="margin-bottom:12px" onclick="startTestGroup('${lib.id}','${group.id}')">📝 本组测试（看图选词）</button>
+    <div class="test-btn-row" style="margin-bottom:12px">
+      <button class="btn btn-purple" style="flex:1" onclick="startTestGroup('${lib.id}','${group.id}')">📝 本组测试</button>
+      <button class="btn btn-white" style="flex:1" onclick="showTestHistory('group','${lib.id}','${group.id}','${escapeHtml(lib.name)} / ${escapeHtml(group.name)}')">📜 历史记录</button>
+    </div>
     <div style="text-align:right;margin-bottom:8px">
       <button class="sort-chip ${sortPref.words && sortPref.words[lib.id]==='name'?'active':''}" onclick="toggleLibWordSort('${lib.id}')">${sortPref.words && sortPref.words[lib.id]==='name'?'🕐 原顺序':'🔤 按名称'}</button>
     </div>
@@ -2782,7 +2808,27 @@ function testPick(i){
   document.querySelectorAll('.test-img-wrap, .test-text-opt').forEach(w=>{ w.style.pointerEvents='none'; });
   setTimeout(()=>{ state.test.index++; renderTest(); }, 1300);
 }
+function recordTestHistory(){
+  if(!state.test) return;
+  const t = state.test;
+  const scope = t.libTest ? 'lib' : 'group';
+  const rec = {
+    id: genId('th'),
+    scope: scope,
+    libId: state.currentLibraryId,
+    groupId: t.libTest ? null : state.currentGroupId,
+    ts: Date.now(),
+    total: t.queue.length,
+    correct: t.correctCount,
+    wrongWords: (t.wrongWords||[]).map(w=>({id:w.id, english:w.english}))
+  };
+  if(!state.testHistory) state.testHistory = [];
+  state.testHistory.unshift(rec);
+  if(state.testHistory.length > 100) state.testHistory = state.testHistory.slice(0,100); // 最多保留 100 条
+  saveTestHistory();
+}
 function renderTestComplete(){
+  recordTestHistory();
   const wrongList = (state.test && state.test.wrongWords && state.test.wrongWords.length)
     ? `<div class="test-wrong-list"><div class="test-wrong-title">❌ 本次答错的单词（${state.test.wrongWords.length} 个，点击可看详情）</div><div class="test-wrong-words">${state.test.wrongWords.map(w=>`<span class="test-wrong-word" onclick="openTestWrongWord('${w.id}')">${escapeHtml(w.english)}</span>`).join('')}</div></div>`
     : '';
@@ -2813,6 +2859,67 @@ function openTestWrongWord(id){
   // 标记从测试完成页进入，返回时回到完成页
   state.articleWordViewReturn = { fromTest: true };
   showArticleWordView(id);
+}
+function openHistoryWrongWord(id){
+  if(!id) return;
+  // 标记从历史记录页进入，返回时回到历史记录页
+  state.articleWordViewReturn = { fromHistory: true };
+  showArticleWordView(id);
+}
+function showTestHistory(scope, libId, groupId, title){
+  state.testHistoryScope = scope;
+  state.testHistoryLibId = libId;
+  state.testHistoryGroupId = groupId;
+  state.testHistoryTitle = title || '';
+  renderTestHistory();
+  showPage('page-test-history');
+}
+function testHistoryReturn(){
+  if(state.testHistoryScope === 'lib'){
+    renderLibrary();
+    showPage('page-library');
+  } else {
+    renderGroup();
+    showPage('page-group');
+  }
+}
+function renderTestHistory(){
+  const scope = state.testHistoryScope;
+  const libId = state.testHistoryLibId;
+  const groupId = state.testHistoryGroupId;
+  const title = state.testHistoryTitle || '';
+  const list = (state.testHistory||[]).filter(r => r.scope===scope && r.libId===libId && (scope==='lib' || r.groupId===groupId));
+  let body;
+  if(list.length === 0){
+    body = `<div class="empty-state"><div class="emoji">📜</div><p>还没有测试记录<br>先去完成一次测试吧！</p></div>`;
+  } else {
+    body = list.map(r=>{
+      const d = new Date(r.ts);
+      const pad = n => String(n).padStart(2,'0');
+      const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const score = r.total ? Math.round(r.correct/r.total*100) : 0;
+      const wrongHTML = (r.wrongWords && r.wrongWords.length)
+        ? `<div class="test-wrong-list" style="margin-top:8px"><div class="test-wrong-title">❌ 答错的单词（${r.wrongWords.length} 个，点击可看详情）</div><div class="test-wrong-words">${r.wrongWords.map(w=>`<span class="test-wrong-word" onclick="openHistoryWrongWord('${w.id}')">${escapeHtml(w.english)}</span>`).join('')}</div></div>`
+        : `<div style="margin-top:8px;color:#1B8A5A;font-size:15px;font-weight:600">✅ 全部答对，没有答错的单词</div>`;
+      return `
+        <div class="history-card">
+          <div class="history-head">
+            <span class="history-date">🕒 ${dateStr}</span>
+            <span class="history-score">得分 ${score} 分</span>
+          </div>
+          <div class="history-meta">共 ${r.total} 题，答对 ${r.correct} 题</div>
+          ${wrongHTML}
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('page-test-history').innerHTML = `
+    <div class="back-bar">
+      <button class="back-btn" onclick="testHistoryReturn()">←</button>
+      <div class="back-title">📜 历史记录</div>
+    </div>
+    <div class="section-title" style="margin:12px 0 10px">${escapeHtml(title)}</div>
+    ${body}
+  `;
 }
 
 /* ========== Export to Word ========== */
@@ -4985,6 +5092,9 @@ function articleWordReturn(){
   if(r && r.fromTest){
     renderTestComplete();
     showPage('page-test');
+  } else if(r && r.fromHistory){
+    renderTestHistory();
+    showPage('page-test-history');
   } else if(r && r.articleId){
     reopenArticleView(r.articleId).then(()=>{
       if(r.scrollY > 0){
@@ -5142,6 +5252,7 @@ function init(){
   state.stories = loadStories();
   state.articleLibs = loadArticleLibs();
   state.articles = loadArticles();
+  state.testHistory = loadTestHistory();
   try{ const f = parseInt(localStorage.getItem('wordbook_articleFont'), 10); if(!isNaN(f)) state.articleFontSize = f; }catch(e){}
   renderHome();
   showPage('page-home');
