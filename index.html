@@ -4138,6 +4138,7 @@ function renderArticleGroup(){
     <div class="back-bar">
       <button class="back-btn" onclick="navigateArticleLib('${lib.id}')">←</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
+      <button class="btn btn-small btn-white" title="导出本分组所有文章到 Word" onclick="exportArticleGroup('${lib.id}','${isDefault ? 'default' : group.id}')">📤</button>
       ${!isDefault ? `
       <button class="btn btn-small btn-white" title="重命名" onclick="renameArticleGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteArticleGroup('${lib.id}','${group.id}')">🗑️</button>` : ''}
@@ -5117,6 +5118,56 @@ async function exportArticleWord(articleId){
   body += dxPara('');
   downloadBlob(await B.build(body), sanitizeFilename('文章_' + article.title) + '.docx');
   showToast('文章 Word 已导出！');
+}
+async function exportArticleGroup(libId, groupId){
+  const lib = state.articleLibs.find(l=>l.id===libId);
+  if(!lib) return;
+  const isDefault = groupId === 'default';
+  const group = isDefault ? null : lib.groups.find(g=>g.id===groupId);
+  let articles, title;
+  if(isDefault){
+    articles = state.articles.filter(a=>a.placements.some(p=>p.libraryId===lib.id) && !a.placements.some(p=>p.libraryId===lib.id && p.groupId));
+    title = '默认分组';
+  } else {
+    articles = state.articles.filter(a=>a.placements.some(p=>p.libraryId===lib.id && p.groupId===group.id));
+    title = group.name;
+  }
+  if(articles.length === 0){ showToast('该分组还没有文章可导出'); return; }
+  const sortPref = getSortPref();
+  const listArticles = (sortPref.articleItems && sortPref.articleItems[lib.id] === 'name')
+    ? sortByText(articles, 'title')
+    : articles.slice().reverse();
+  showToast('正在生成 Word...');
+  const B = createDocxBuilder();
+  let body = '';
+  for(let ai=0; ai<listArticles.length; ai++){
+    const article = listArticles[ai];
+    if(ai > 0) body += dxPara('');
+    // 每篇文章显示标题
+    body += dxPara(dxRun(article.title || '未命名文章',{bold:true,size:24,color:'26C6DA'}),{align:'left'});
+    const images = await dbGetArticleImages(article.id);
+    const imgMap = {};
+    for(const im of images) imgMap[im.id] = im.data;
+    if(article.blocks.length === 0){
+      body += dxPara(dxRun('（无内容）',{size:14,color:'999999'}),{align:'left'});
+      continue;
+    }
+    for(let i=0; i<article.blocks.length; i++){
+      const b = article.blocks[i];
+      if(b.type === 'text' && b.content && b.content.trim()){
+        const lines = b.content.split('\n');
+        for(const line of lines){
+          body += dxPara(dxRun(line,{size:18}),{align:'left'});
+        }
+      } else if(b.type === 'image' && imgMap[b.id]){
+        if(i > 0) body += dxPara('');
+        body += dxPara(await B.addImage(imgMap[b.id], 440, 540), {align:'center'});
+      }
+    }
+  }
+  const fileName = sanitizeFilename('文章分组_' + (isDefault ? '默认分组' : group.name)) + '.docx';
+  downloadBlob(await B.build(body), fileName);
+  showToast('分组文章 Word 已导出！');
 }
 
 /* ========== Backup ========== */
