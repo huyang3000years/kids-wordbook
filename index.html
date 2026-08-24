@@ -498,7 +498,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .article-word-chinese{font-size:18px;color:var(--text-l);margin-bottom:12px;white-space:pre-wrap}
 .article-word-label{font-size:20px;margin-bottom:12px}
 .article-word-imgs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.article-word-imgs img{width:100px;height:100px;object-fit:cover;border-radius:10px}
+.article-word-imgs img{width:100px;height:100px;object-fit:cover;border-radius:10px;cursor:pointer;transition:transform .15s}
+.article-word-imgs img:active{transform:scale(.96)}
 /* 首页三大模块 */
 .home-module{
   background:var(--card);border-radius:var(--radius);padding:16px;
@@ -4774,8 +4775,7 @@ function renderArticleView(){
     </div>
       ${bodyHTML || '<div class="empty-state"><div class="emoji">📖</div><p>这篇文章没有内容</p></div>'}
   `;
-  // 绑定双击/双触事件
-  setupArticleWordTap();
+  // 绑定单击单词跳转
   applyArticleFontSize();
 }
 function applyArticleFontSize(){
@@ -4796,9 +4796,10 @@ function articleWordLabelClass(w){
   if(w.label === 'green') return ' aw-green';
   return '';
 }
-function awSpan(cls, word, text){
+function awSpan(cls, word, text, clickable){
   const w = escapeHtml(word);
-  return `<span class="${cls}" data-word="${w}" onclick="articleWordTap('${w}')" oncontextmenu="return false">${escapeHtml(text)}</span>`;
+  const oc = clickable ? `onclick="jumpToWord('${w}')"` : '';
+  return `<span class="${cls}" data-word="${w}" ${oc} oncontextmenu="return false">${escapeHtml(text)}</span>`;
 }
 function renderArticleText(text){
   // 将文本分词，匹配词库的「单词」与「词组（含空格的多词条目）」
@@ -4920,15 +4921,15 @@ function renderArticleText(text){
       const clean = t.text.toLowerCase();
       if(wordSet[clean]){
         const cls = 'aw found' + articleWordLabelClass(wordSet[clean]);
-        html += awSpan(cls, clean, t.text);
+        html += awSpan(cls, clean, t.text, true);
       } else if(relatedSet[clean]){
-        // 关联词：以所属单词的颜色显示，双击跳转到所属单词详情
+        // 关联词：以所属单词的颜色显示，单击跳转到所属单词详情
         const owner = relatedSet[clean];
         const ownerLow = owner.english.toLowerCase();
         const cls = 'aw found' + articleWordLabelClass(owner);
-        html += `<span class="${cls}" data-word="${escapeHtml(ownerLow)}" onclick="articleWordTap('${escapeHtml(ownerLow)}')" oncontextmenu="return false">${escapeHtml(t.text)}</span>`;
+        html += `<span class="${cls}" data-word="${escapeHtml(ownerLow)}" onclick="jumpToWord('${escapeHtml(ownerLow)}')" oncontextmenu="return false">${escapeHtml(t.text)}</span>`;
       } else {
-        html += awSpan('aw', clean, t.text);
+        html += awSpan('aw', clean, t.text, false);
       }
       k++;
     }
@@ -4961,23 +4962,6 @@ function articlePhraseTap(el, ev){
       }
     }, 320);
   }
-}
-let _lastWordTapTime = 0;
-let _lastWordTapWord = null;
-function articleWordTap(word){
-  // 双击（桌面）或双触（移动端）单词才跳转，避免误触
-  const now = Date.now();
-  if(_lastWordTapWord === word && (now - _lastWordTapTime) < 400){
-    _lastWordTapWord = null;
-    _lastWordTapTime = 0;
-    jumpToWord(word);
-  } else {
-    _lastWordTapWord = word;
-    _lastWordTapTime = now;
-  }
-}
-function setupArticleWordTap(){
-  // 单词跳转已改为「双击 / 双触」触发，逻辑在 awSpan 的 onclick 中处理，无需额外绑定
 }
 function jumpToWord(word){
   const w = state.words.find(x=>x.english.toLowerCase()===word.toLowerCase());
@@ -5025,7 +5009,7 @@ async function showArticleWordView(wordId){
   try{ images = await dbGetImagesByWord(w.id); }catch(err){}
   let imgsHTML = '';
   if(images.length > 0){
-    imgsHTML = `<div class="article-word-imgs">${images.map(im=>`<img src="${im.data}" alt="">`).join('')}</div>`;
+    imgsHTML = `<div class="article-word-imgs">${images.map(im=>`<img src="${im.data}" alt="" onclick="showImageFullscreen('${im.data}')">`).join('')}</div>`;
   }
   // 自然拼读标签（该单词所属「自然拼读」词库下的分组，点击可前往）
   const phonicsHTML = renderPhonicsChips(w.placements, {centered:true, clickable:true});
