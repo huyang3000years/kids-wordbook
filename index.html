@@ -223,6 +223,7 @@ textarea.form-input{resize:vertical;min-height:60px}
   display:flex;align-items:center;justify-content:space-between;
   cursor:pointer;user-select:none;
 }
+.placement-count{color:var(--text-l);font-size:14px;margin-left:6px}
 .placement-group{
   padding:10px 14px 10px 28px;display:flex;align-items:center;gap:8px;
   border-top:1px solid #F0F0F0;cursor:pointer;font-size:18px;
@@ -1981,11 +1982,12 @@ function renderWordEditPlacements(){
         </div>`;
     }).join('');
   }
+  const totalGroups = state.libraries.reduce((s,lib)=>s+(lib.groups?lib.groups.length:0), 0);
   const container = document.getElementById('placement-form-group');
   if(container){
     container.innerHTML = `
       <label class="form-label form-label-toggle" onclick="toggleEditPlacementsCollapse()">
-        <span>归属词库与分组</span>
+        <span>归属词库与分组</span><span class="placement-count">（共 ${totalGroups} 个分组）</span>
         <span class="collapse-arrow ${collapsed?'':'open'}">▾</span>
       </label>
       ${html}
