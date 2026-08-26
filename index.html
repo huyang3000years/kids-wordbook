@@ -1466,7 +1466,7 @@ function renderGroup(){
   if(words.length === 0){
     document.getElementById('group-words-list').innerHTML = `<div class="empty-state"><div class="emoji">📝</div><p>还没有单词<br>点击上方按钮添加吧！</p></div>`;
   } else {
-    renderWordList('group-words-list', words);
+    renderWordList('group-words-list', words, undefined, {libId: state.currentLibraryId, groupId: state.currentGroupId});
   }
 }
 
@@ -1535,7 +1535,7 @@ async function computeArticleSizeMap(){
   }
   return map;
 }
-function renderWordList(containerId, words, sizeMap){
+function renderWordList(containerId, words, sizeMap, groupCtx){
   const container = document.getElementById(containerId);
   if(!container) return;
   if(words.length === 0){
@@ -1565,9 +1565,9 @@ function renderWordList(containerId, words, sizeMap){
     </div>`;
   }).join('');
   // Async load thumbnails
-  loadThumbnails(words.map(w=>w.id));
+  loadThumbnails(words.map(w=>w.id), groupCtx);
 }
-async function loadThumbnails(wordIds){
+async function loadThumbnails(wordIds, groupCtx){
   let allImages = [];
   try{
     allImages = await dbGetAllImages();
@@ -1591,15 +1591,29 @@ async function loadThumbnails(wordIds){
   }
   // 同一单词可能同时出现在多个列表（我的词库/分组/全部单词/标记），
   // 因此用 data-word-id 选中全部缩略图一并更新，不能用 getElementById（只命中第一个）。
+  const libId = groupCtx ? groupCtx.libId : null;
+  const groupId = groupCtx ? groupCtx.groupId : null;
   const thumbs = document.querySelectorAll('.word-thumb');
   for(const id of wordIds){
     const images = byWord[id] || [];
-    if(images.length > 0 && images[0].data){
-      thumbs.forEach(el=>{
-        if(el.dataset.wordId === id){
-          el.innerHTML = `<img src="${images[0].data}" alt="" onerror="this.parentNode.innerHTML='🖼️'">`;
+    if(images.length > 0){
+      // 在分组列表中：优先显示该单词在本分组所选的图片（placement.imageId），而非默认首图
+      let picked = null;
+      if(libId && groupId){
+        const w = state.words.find(x=>x.id===id);
+        const p = w && w.placements.find(pp=>pp.libraryId===libId && pp.groupId===groupId);
+        if(p && p.imageId){
+          picked = images.find(im=>im.id===p.imageId) || images[0];
         }
-      });
+      }
+      if(!picked) picked = images[0];
+      if(picked.data){
+        thumbs.forEach(el=>{
+          if(el.dataset.wordId === id){
+            el.innerHTML = `<img src="${picked.data}" alt="" onerror="this.parentNode.innerHTML='🖼️'">`;
+          }
+        });
+      }
     }
   }
 }
