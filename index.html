@@ -189,16 +189,11 @@ textarea.form-input{resize:vertical;min-height:60px}
   background:rgba(255,0,0,.8);color:#fff;border:none;border-radius:50%;
   font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
 }
-/* 图片所属分组（编辑页图片下方的小标签） */
-.image-item{display:flex;flex-direction:column;align-items:center}
-.img-group-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center;max-width:100px;justify-content:center}
-.img-group-label{font-size:11px;color:var(--text-l);width:100%;text-align:center;line-height:1}
-.img-group-chip{
-  font-size:11px;padding:2px 8px;border-radius:999px;background:#EEE;color:#666;
-  border:1px solid transparent;cursor:pointer;user-select:none;transition:all .12s;
+/* 归属分组关联图片（下拉选择） */
+.img-pick{
+  margin-left:auto;font-size:14px;padding:5px 8px;border-radius:8px;
+  border:1px solid #CCC;background:#fff;color:#333;cursor:pointer;max-width:150px;
 }
-.img-group-chip.on{background:#E8F8EF;color:#1B8A5A;border-color:#B7E4C7;font-weight:600}
-.img-group-chip:active{transform:scale(.94)}
 /* Label selector */
 .label-selector{display:flex;gap:10px}
 .label-option{
@@ -1760,7 +1755,7 @@ async function startEditExisting(word){
     chinese: word.chinese,
     label: word.label,
     favorite: !!word.favorite,
-    images: images.map(img=>({id:img.id, data:img.data, isNew:false, groups:img.groups})),
+    images: images.map(img=>({id:img.id, data:img.data, isNew:false})),
     originalImageIds: images.map(img=>img.id),
     related: (word.related||[]).slice(),
     placements: (word.placements||[]).slice()
@@ -1918,6 +1913,22 @@ function togglePlacement(libId, groupId){
   renderWordEditPlacements();
   renderWordEditPhonics();
 }
+// 在「归属词库与分组」中，已勾选的分组右侧显示下拉框，选择该分组对应的图片
+function imgSelectForGroup(libId, groupId){
+  const ew = state.editingWord;
+  if(!ew || !ew.images || ew.images.length === 0) return '';
+  const p = ew.placements.find(x=>x.libraryId===libId && x.groupId===groupId);
+  const cur = p ? p.imageId : undefined;
+  const opts = ew.images.map((im, i)=>`<option value="${im.id}" ${cur===im.id?'selected':''}>图片${i+1}</option>`).join('');
+  return `<select class="img-pick" title="选择该分组对应的图片" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onchange="setPlacementImage('${libId}','${groupId}', this.value)"><option value="">默认（首图）</option>${opts}</select>`;
+}
+function setPlacementImage(libId, groupId, imageId){
+  const ew = state.editingWord;
+  if(!ew) return;
+  const p = ew.placements.find(x=>x.libraryId===libId && x.groupId===groupId);
+  if(!p) return;
+  p.imageId = imageId || null;
+}
 function renderWordEditPlacements(){
   // Re-render just the placement section (keeps input values intact)
   const ew = state.editingWord;
@@ -1935,10 +1946,12 @@ function renderWordEditPlacements(){
       } else {
         groupsHTML = lib.groups.map(g=>{
           const checked = ew.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id);
+          const selHTML = checked ? imgSelectForGroup(lib.id, g.id) : '';
           return `
             <div class="placement-group ${checked?'checked':''}" onclick="togglePlacement('${lib.id}','${g.id}')">
               <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();togglePlacement('${lib.id}','${g.id}')">
               <span>${escapeHtml(g.name)}</span>
+              ${selHTML}
             </div>`;
         }).join('');
       }
@@ -2009,18 +2022,15 @@ function renderWordEditImages(){
   let slotsHTML = '';
   for(let i=0; i<ew.images.length; i++){
     slotsHTML += `
-      <div class="image-item">
-        <div class="image-slot filled draggable" draggable="true"
-             ondragstart="dragImageStart(event, ${i})"
-             ondragover="dragImageOver(event, ${i})"
-             ondragleave="dragImageLeave(event)"
-             ondrop="dragImageDrop(event, ${i})"
-             ondragend="dragImageEnd(event)">
-          <span class="img-order">${i+1}</span>
-          <img src="${ew.images[i].data}" alt="" draggable="false" onclick="showImageFullscreen('${ew.images[i].data}')">
-          <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
-        </div>
-        ${imgGroupChipsHTML(i)}
+      <div class="image-slot filled draggable" draggable="true"
+           ondragstart="dragImageStart(event, ${i})"
+           ondragover="dragImageOver(event, ${i})"
+           ondragleave="dragImageLeave(event)"
+           ondrop="dragImageDrop(event, ${i})"
+           ondragend="dragImageEnd(event)">
+        <span class="img-order">${i+1}</span>
+        <img src="${ew.images[i].data}" alt="" draggable="false" onclick="showImageFullscreen('${ew.images[i].data}')">
+        <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
       </div>`;
   }
   // 始终保留一个「新增图片」入口（取消张数上限）
@@ -2066,43 +2076,6 @@ function removeImageFromEditing(index){
   state.editingWord.images.splice(index, 1);
   renderWordEditImages();
   updateWordEditImageSizeLabel();
-}
-// ===== 图片所属分组（用于本组测试按分组展示对应图片）=====
-// 旧图片无 groups 字段时，视为归属该单词所有分组（向后兼容）
-function imgEffectiveGroups(img, placements){
-  if(img.groups === undefined) return (placements||[]).slice();
-  return img.groups;
-}
-function imgAssignedTo(img, libraryId, groupId, placements){
-  return imgEffectiveGroups(img, placements).some(p=>p.libraryId===libraryId && p.groupId===groupId);
-}
-function toggleImgGroup(imgIndex, libraryId, groupId){
-  const ew = state.editingWord;
-  if(!ew) return;
-  const img = ew.images[imgIndex];
-  if(!img) return;
-  // 首次切换时把「旧数据（归属全部分组）」固化为显式列表，再增删
-  let groups = (img.groups === undefined) ? (ew.placements||[]).slice() : img.groups.slice();
-  const idx = groups.findIndex(p=>p.libraryId===libraryId && p.groupId===groupId);
-  if(idx >= 0) groups.splice(idx, 1);
-  else groups.push({libraryId:libraryId, groupId:groupId});
-  img.groups = groups;
-  renderWordEditImages();
-}
-function imgGroupChipsHTML(imgIndex){
-  const ew = state.editingWord;
-  const placements = ew.placements || [];
-  if(placements.length === 0) return '';
-  const img = ew.images[imgIndex];
-  if(!img) return '';
-  const chips = placements.map(p=>{
-    const lib = state.libraries.find(l=>l.id===p.libraryId);
-    const g = lib ? lib.groups.find(x=>x.id===p.groupId) : null;
-    const name = g ? g.name : (lib ? lib.name : '分组');
-    const on = imgAssignedTo(img, p.libraryId, p.groupId, placements);
-    return `<span class="img-group-chip ${on?'on':''}" onclick="toggleImgGroup(${imgIndex},'${p.libraryId}','${p.groupId}')">${escapeHtml(name)}</span>`;
-  }).join('');
-  return `<div class="img-group-row"><span class="img-group-label">分组</span>${chips}</div>`;
 }
 function resizeImage(file, maxWidth, quality){
   return new Promise((resolve,reject)=>{
@@ -2226,7 +2199,7 @@ async function saveWord(){
     // 按当前数组顺序写入排序号，保证拖拽排序可持久化
     for(const img of ew.images){
       img.sort = ew.images.indexOf(img);
-      await dbSaveImage({id:img.id, wordId:ew.id, data:img.data, sort:img.sort, groups:img.groups});
+      await dbSaveImage({id:img.id, wordId:ew.id, data:img.data, sort:img.sort});
     }
     const currentIds = ew.images.map(i=>i.id);
     for(const oldId of ew.originalImageIds){
@@ -2762,12 +2735,14 @@ function startTestGroup(libId, groupId){
     for(const w of words){
       const imgs = await dbGetImagesByWord(w.id);
       if(!imgs || imgs.length===0) continue;
-      // 只取归属当前分组的图片（旧图片缺 groups 字段则视为归属全部分组）
-      const groupImgs = imgs.filter(im => imgAssignedTo(im, libId, groupId, w.placements));
-      if(groupImgs.length > 0){
-        const chosen = groupImgs[Math.floor(Math.random()*groupImgs.length)];
-        cands.push({ word:w, img:chosen.data });
+      // 取该分组关联的那张图片（placement.imageId），未指定则默认首图
+      let chosen = imgs[0];
+      const placement = w.placements.find(p=>p.libraryId===libId && p.groupId===groupId);
+      if(placement && placement.imageId){
+        const found = imgs.find(im=>im.id===placement.imageId);
+        if(found) chosen = found;
       }
+      cands.push({ word:w, img:chosen.data });
     }
     if(cands.length < 4){
       showToast('本组至少需要 4 个带图片的单词才能测试');
