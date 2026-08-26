@@ -1982,12 +1982,12 @@ function renderWordEditPlacements(){
         </div>`;
     }).join('');
   }
-  const totalGroups = state.libraries.reduce((s,lib)=>s+(lib.groups?lib.groups.length:0), 0);
+  const wordGroups = (ew && ew.placements) ? ew.placements.length : 0;
   const container = document.getElementById('placement-form-group');
   if(container){
     container.innerHTML = `
       <label class="form-label form-label-toggle" onclick="toggleEditPlacementsCollapse()">
-        <span>归属词库与分组</span><span class="placement-count">（共 ${totalGroups} 个分组）</span>
+        <span>归属词库与分组</span><span class="placement-count">（${wordGroups} 个分组）</span>
         <span class="collapse-arrow ${collapsed?'':'open'}">▾</span>
       </label>
       ${html}
