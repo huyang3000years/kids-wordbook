@@ -93,6 +93,22 @@ body{
   background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:10px;
   box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;cursor:pointer;
 }
+.group-card.dragging{opacity:.45}
+.group-card.drag-over{box-shadow:0 0 0 3px var(--primary-l);border-color:var(--primary)}
+.group-move-overlay{
+  position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;z-index:2000;padding:20px;
+}
+.group-move-panel{
+  background:var(--card);border-radius:var(--radius);padding:18px;width:100%;max-width:420px;
+  max-height:80vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.3);
+}
+.group-move-panel h3{font-size:20px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.group-move-item{
+  display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;cursor:pointer;
+  background:var(--bg);border-radius:12px;font-size:18px;
+}
+.group-move-item:hover{background:var(--primary-l)}
 .group-icon{font-size:32px}
 .group-info{flex:1}
 .group-name{font-size:20px;font-weight:600}
@@ -693,7 +709,7 @@ function libGroupsInlineHTML(type, lib){
               : `navigateArticleGroup('${lib.id}','${g.id}')`;
     const unit = type==='word' ? '个单词' : type==='story' ? '个故事' : '篇文章';
     return `
-      <div class="group-card" style="margin-bottom:0" onclick="event.stopPropagation();${nav}">
+      <div class="group-card" style="margin-bottom:0" ${groupDragAttrs(type, lib.id, g.id)} onclick="event.stopPropagation();${nav}">
         <div class="group-icon">📄</div>
         <div class="group-info">
           <div class="group-name">${escapeHtml(g.name)}</div>
@@ -1138,6 +1154,118 @@ function dragLibEnd(){
   dragLibId = null;
 }
 
+/* ========== Group Drag Sort ========== */
+let dragGroupId = null;
+let dragGroupType = null;
+let dragGroupLibId = null;
+function groupDragAttrs(type, libId, groupId){
+  return `draggable="true" ondragstart="dragGroupStart(event,'${type}','${libId}','${groupId}')" ondragover="dragGroupOver(event)" ondragleave="dragGroupLeave(event)" ondrop="dragGroupDrop(event,'${type}','${libId}','${groupId}')" ondragend="dragGroupEnd(event)"`;
+}
+function dragGroupStart(e, type, libId, groupId){
+  e.stopPropagation();
+  dragGroupType = type;
+  dragGroupLibId = libId;
+  dragGroupId = groupId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', groupId);
+  try{ e.dataTransfer.setData('text/uri-list', ''); }catch(err){}
+  e.currentTarget.classList.add('dragging');
+}
+function dragGroupOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function dragGroupLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+function dragGroupDrop(e, type, libId, targetGroupId){
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('drag-over');
+  if(!dragGroupId || dragGroupId === targetGroupId){ dragGroupId = null; return; }
+  const arr = type==='word' ? state.libraries : type==='story' ? state.storyLibs : state.articleLibs;
+  const lib = arr.find(l=>l.id===libId);
+  if(!lib || !lib.groups){ dragGroupId = null; return; }
+  const from = lib.groups.findIndex(g=>g.id===dragGroupId);
+  const to = lib.groups.findIndex(g=>g.id===targetGroupId);
+  if(from < 0 || to < 0){ dragGroupId = null; return; }
+  const moved = lib.groups.splice(from,1)[0];
+  lib.groups.splice(to,0,moved);
+  const saveFn = type==='word' ? saveLibraries : type==='story' ? saveStoryLibs : saveArticleLibs;
+  saveFn();
+  // 手动排序后切回“原顺序”模式，让新顺序立即可见
+  const p = getSortPref();
+  if(p.groups && p.groups[libId] === 'name'){ p.groups[libId] = 'default'; saveSortPref(p); }
+  dragGroupId = null;
+  refreshCurrentPage();
+  showToast('分组顺序已更新');
+}
+function dragGroupEnd(){
+  document.querySelectorAll('.group-card').forEach(s=>{
+    s.classList.remove('dragging');
+    s.classList.remove('drag-over');
+  });
+  dragGroupId = null;
+}
+
+/* ========== Move Group to another Library (word only) ========== */
+function openMoveGroupMenu(){
+  const lib = state.libraries.find(l=>l.id===state.currentLibraryId);
+  if(!lib) return;
+  const group = lib.groups.find(g=>g.id===state.currentGroupId);
+  if(!group) return;
+  const others = state.libraries.filter(l=>l.id!==lib.id);
+  let items;
+  if(others.length === 0){
+    items = `<div style="color:var(--text-l);font-size:16px;padding:8px 4px">暂无其他词库，请先新建一个词库。</div>`;
+  } else {
+    items = others.map(l=>`
+      <div class="group-move-item" onclick="moveGroupToLib('${lib.id}','${group.id}','${l.id}')">
+        <span>📁</span><span>${escapeHtml(l.name)}</span>
+      </div>`).join('');
+  }
+  const overlay = document.createElement('div');
+  overlay.className = 'group-move-overlay';
+  overlay.id = 'group-move-overlay';
+  overlay.setAttribute('onclick','if(event.target===this)closeMoveGroupMenu()');
+  overlay.innerHTML = `
+    <div class="group-move-panel">
+      <h3>📦 移动分组「${escapeHtml(group.name)}」至</h3>
+      ${items}
+      <button class="btn btn-white btn-block" style="margin-top:6px" onclick="closeMoveGroupMenu()">取消</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+function closeMoveGroupMenu(){
+  const o = document.getElementById('group-move-overlay');
+  if(o) o.remove();
+}
+function moveGroupToLib(oldLibId, groupId, newLibId){
+  const oldLib = state.libraries.find(l=>l.id===oldLibId);
+  const newLib = state.libraries.find(l=>l.id===newLibId);
+  if(!oldLib || !newLib) return;
+  const gi = oldLib.groups.findIndex(g=>g.id===groupId);
+  if(gi < 0) return;
+  const group = oldLib.groups.splice(gi,1)[0];
+  // 避免在同一词库出现同名分组（直接追加）
+  newLib.groups.push(group);
+  // 更新该分组下所有单词的 placement.libraryId
+  for(const w of state.words){
+    if(!w.placements) continue;
+    for(const p of w.placements){
+      if(p.libraryId===oldLibId && p.groupId===groupId){
+        p.libraryId = newLibId;
+      }
+    }
+  }
+  saveLibraries();
+  saveWords();
+  closeMoveGroupMenu();
+  showToast(`已移动到「${newLib.name}」`);
+  navigateGroup(newLibId, groupId);
+}
+
 /* ========== Library Hide ========== */
 function toggleHideLib(id){
   const lib = state.libraries.find(l=>l.id===id);
@@ -1371,7 +1499,7 @@ function renderLibrary(){
     groupsHTML = groups.map(g=>{
       const wordCount = state.words.filter(w=>w.placements.some(p=>p.libraryId===lib.id && p.groupId===g.id)).length;
       return `
-        <div class="group-card" onclick="navigateGroup('${lib.id}','${g.id}')">
+        <div class="group-card" ${groupDragAttrs('word', lib.id, g.id)} onclick="navigateGroup('${lib.id}','${g.id}')">
           <div class="group-icon">📄</div>
           <div class="group-info">
             <div class="group-name">${escapeHtml(g.name)}</div>
@@ -1442,6 +1570,7 @@ function renderGroup(){
     <div class="back-bar">
       <button class="back-btn" onclick="navigateLibrary('${lib.id}')">←</button>
       <button class="btn btn-small btn-white" title="返回主页面" onclick="navigateHome()">🏠</button>
+      <button class="btn btn-small btn-white" title="移动分组至其他词库" onclick="openMoveGroupMenu()">📦</button>
       <button class="btn btn-small btn-white" title="导出 Word" onclick="exportGroupWord('${lib.id}','${group.id}')">📤</button>
       <button class="btn btn-small btn-white" title="重命名" onclick="renameGroup('${lib.id}','${group.id}')">✏️</button>
       <button class="btn btn-small btn-red" title="删除分组" onclick="deleteGroup('${lib.id}','${group.id}')">🗑️</button>
@@ -3438,7 +3567,7 @@ function renderStoryLib(){
     groupsHTML = groups.map(g=>{
       const count = getStoryGroupStoryCount(lib.id, g.id);
       return `
-        <div class="group-card" onclick="navigateStoryGroup('${lib.id}','${g.id}')">
+        <div class="group-card" ${groupDragAttrs('story', lib.id, g.id)} onclick="navigateStoryGroup('${lib.id}','${g.id}')">
           <div class="group-icon">📄</div>
           <div class="group-info">
             <div class="group-name">${escapeHtml(g.name)}</div>
@@ -4117,7 +4246,7 @@ function renderArticleLib(){
     groupsHTML = groups.map(g=>{
       const count = getArticleGroupCount(lib.id, g.id);
       return `
-        <div class="group-card" onclick="navigateArticleGroup('${lib.id}','${g.id}')">
+        <div class="group-card" ${groupDragAttrs('article', lib.id, g.id)} onclick="navigateArticleGroup('${lib.id}','${g.id}')">
           <div class="group-icon">📄</div>
           <div class="group-info">
             <div class="group-name">${escapeHtml(g.name)}</div>
