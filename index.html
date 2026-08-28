@@ -5106,7 +5106,10 @@ function renderArticleText(text){
         const cls = 'aw found' + articleWordLabelClass(owner);
         html += `<span class="${cls}" data-word="${escapeHtml(ownerLow)}" onclick="jumpToWord('${escapeHtml(ownerLow)}')" oncontextmenu="return false">${escapeHtml(t.text)}</span>`;
       } else {
-        html += awSpan('aw', clean, t.text, false);
+        // 词库中没有的单词：双击跳转到新增单词页面（英文已预填）
+        const w = escapeHtml(clean);
+        const disp = escapeHtml(t.text);
+        html += `<span class="aw" data-word="${w}" ondblclick="addWordFromArticle('${disp}')" oncontextmenu="return false">${disp}</span>`;
       }
       k++;
     }
