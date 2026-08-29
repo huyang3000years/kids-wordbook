@@ -2875,6 +2875,7 @@ function playViewWordAudio(){
 }
 function startTestGroup(libId, groupId){
   const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
+  if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
   (async()=>{
     const cands = [];
     for(const w of words){
