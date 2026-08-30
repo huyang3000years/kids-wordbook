@@ -288,9 +288,6 @@ textarea.form-input{resize:vertical;min-height:60px}
 .test-text-opt:active{background:var(--bg-2)}
 .test-text-opt.test-correct{border-color:#2E7D32;box-shadow:0 0 0 4px #2E7D32;color:#2E7D32}
 .test-text-opt.test-wrong{border-color:#C62828;box-shadow:0 0 0 4px #C62828;color:#C62828}
-/* 选项为文字（无图单词）时，使文字在卡片内居中 */
-.test-img-wrap.test-text-opt{display:flex;align-items:center;justify-content:center}
-.test-text-inner{text-align:center;line-height:1.3}
 .test-wrong-list{margin:18px 0 8px;width:100%;max-width:520px}
 .test-wrong-title{font-size:18px;font-weight:700;color:#C62828;margin-bottom:8px;text-align:left}
 .test-wrong-words{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-start}
@@ -2877,29 +2874,26 @@ function playViewWordAudio(){
   if(w) playWordAudio(w.english);
 }
 function startTestGroup(libId, groupId){
-  let words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
-  if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
-  if(words.length < 2){
-    showToast('本组至少需要 2 个单词才能测试');
-    return;
-  }
   (async()=>{
     try{
+      const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
       const cands = [];
       for(const w of words){
         const imgs = await dbGetImagesByWord(w.id);
-        let chosen = null;
-        if(imgs && imgs.length>0){
-          // 取该分组关联的那张图片（placement.imageId），未指定则默认首图
-          chosen = imgs[0];
-          const placement = w.placements.find(p=>p.libraryId===libId && p.groupId===groupId);
-          if(placement && placement.imageId){
-            const found = imgs.find(im=>im.id===placement.imageId);
-            if(found) chosen = found;
-          }
+        if(!imgs || imgs.length===0) continue;            // 先排除本组中没有图片的单词（这些单词不测试）
+        if(state.reviewExcludeGreen && w.label==='green') continue; // 排除已会模式下，再排除已会单词
+        // 取该分组关联的那张图片（placement.imageId），未指定则默认首图
+        let chosen = imgs[0];
+        const placement = w.placements.find(p=>p.libraryId===libId && p.groupId===groupId);
+        if(placement && placement.imageId){
+          const found = imgs.find(im=>im.id===placement.imageId);
+          if(found) chosen = found;
         }
-        // 无图片的单词也纳入测试（选项以文字呈现），保证本组所有单词都能被考到
-        cands.push({ word:w, img: chosen ? chosen.data : null });
+        cands.push({ word:w, img:chosen.data });
+      }
+      if(cands.length < 2){
+        showToast('本组至少需要 2 个带图片的单词才能测试');
+        return;
       }
       state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:false };
       renderTest();
@@ -2911,26 +2905,20 @@ function startTestGroup(libId, groupId){
   })();
 }
 function startTestLib(libId){
-  let words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
-  if(state.reviewExcludeGreen) words = words.filter(w=>w.label!=='green');
-  if(words.length < 2){
-    showToast('本词库至少需要 2 个单词才能测试');
-    return;
-  }
+  const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
   (async()=>{
-    try{
-      const cands = [];
-      for(const w of words){
-        const imgs = await dbGetImagesByWord(w.id);
-        cands.push({ word:w, img: (imgs && imgs.length>0) ? imgs[0].data : null });
-      }
-      state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:true };
-      renderTest();
-      showPage('page-test');
-    }catch(e){
-      console.error(e);
-      showToast('测试启动失败，请重试');
+    const cands = [];
+    for(const w of words){
+      const imgs = await dbGetImagesByWord(w.id);
+      if(imgs && imgs.length>0) cands.push({ word:w, img:imgs[0].data });
     }
+    if(cands.length < 4){
+      showToast('本词库至少需要 4 个带图片的单词才能测试');
+      return;
+    }
+    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:true };
+    renderTest();
+    showPage('page-test');
   })();
 }
 function renderTest(){
@@ -2953,17 +2941,11 @@ function renderTest(){
       <div class="review-chinese">${escapeHtml(correct.word.chinese||'')}</div>
       ${phonicsHTML}
     </div>`;
-  const optionsHTML = `<div class="review-images">${options.map((o,i)=>{
-    const hasImg = !!o.img;
-    const inner = hasImg
-      ? `<img class="review-img" src="${o.img}" alt="">`
-      : `<span class="test-text-inner">${escapeHtml(o.word.english)}</span>`;
-    return `
-      <div class="test-img-wrap ${hasImg?'':'test-text-opt'}" id="test-opt-${i}" onclick="testPick(${i})">
-        ${inner}
+  const optionsHTML = `<div class="review-images">${options.map((o,i)=>`
+      <div class="test-img-wrap" id="test-opt-${i}" onclick="testPick(${i})">
+        <img class="review-img" src="${o.img}" alt="">
         <div class="test-overlay"></div>
-      </div>`;
-  }).join('')}</div>`;
+      </div>`).join('')}</div>`;
   document.getElementById('page-test').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="endTest()">←</button>
