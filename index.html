@@ -1681,7 +1681,7 @@ function renderWordList(containerId, words, sizeMap, groupCtx){
     return `
     <div class="word-card ${w.label}">
       <div class="word-card-top">
-        <div class="word-thumb" data-word-id="${w.id}" onclick="loadThumbDetail('${w.id}')">🖼️</div>
+        <div class="word-thumb" data-word-id="${w.id}" onclick="loadThumbDetail('${w.id}', ${groupCtx ? `'${groupCtx.libId}', '${groupCtx.groupId}'` : 'null, null'})">🖼️</div>
         <div class="word-main">
           <div class="word-english" onclick="editWord('${w.id}')">${escapeHtml(w.english)}</div>
           <div class="word-chinese">${escapeHtml(w.chinese)}</div>
@@ -1747,13 +1747,29 @@ async function loadThumbnails(wordIds, groupCtx){
     }
   }
 }
-async function loadThumbDetail(wordId){
+async function loadThumbDetail(wordId, libId, groupId){
   let images = [];
   try{
     images = await dbGetImagesByWord(wordId);
   }catch(err){}
-  if(images.length > 0 && images[0].data){
-    showImageFullscreen(images[0].data);
+  if(images.length === 0) return;
+  // 与缩略图保持一致：按 sort 排序，分组场景下优先显示该分组所选图片（placement.imageId）
+  images.sort((a,b)=>{
+    const sa = (a.sort===undefined ? 999 : a.sort);
+    const sb = (b.sort===undefined ? 999 : b.sort);
+    return sa - sb;
+  });
+  let picked = images[0];
+  if(libId && groupId){
+    const w = state.words.find(x=>x.id===wordId);
+    const p = w && w.placements.find(pp=>pp.libraryId===libId && pp.groupId===groupId);
+    if(p && p.imageId){
+      const found = images.find(im=>im.id===p.imageId);
+      if(found) picked = found;
+    }
+  }
+  if(picked && picked.data){
+    showImageFullscreen(picked.data);
   }
 }
 
