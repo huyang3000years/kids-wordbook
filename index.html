@@ -2846,6 +2846,8 @@ function renderReviewComplete(){
 /* ========== 音效（Web Audio 合成，无需外部文件） ========== */
 let _audioCtx = null;
 function getAudioCtx(){
+  // 上下文若被关闭（closed）则重建，避免复用坏状态导致彻底无声
+  if(_audioCtx && _audioCtx.state==='closed'){ _audioCtx = null; }
   if(!_audioCtx){
     try{ _audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ _audioCtx = null; }
   }
@@ -2856,24 +2858,23 @@ function warmAudio(){
   const ctx = getAudioCtx();
   if(ctx && ctx.state==='suspended'){ ctx.resume().catch(()=>{}); }
 }
-function playTone(freq, dur, type, delay){
+// 在“真正出声的那次用户手势”内 resume 上下文，确保每次答题都有声音（解决首次有声、后续无声）
+async function playTone(freq, dur, type, delay){
   const ctx = getAudioCtx();
   if(!ctx) return;
-  // 若上下文处于挂起状态，先 resume 再调度，否则音符会在 currentTime=0 处“还没出声就已结束”
-  const start = ()=>{
-    const t0 = ctx.currentTime + (delay||0);
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type || 'sine';
-    osc.frequency.value = freq;
-    osc.connect(gain); gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.0001, t0);
-    gain.gain.exponentialRampToValueAtTime(0.3, t0+0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
-    osc.start(t0); osc.stop(t0+dur+0.03);
-  };
-  if(ctx.state==='suspended'){ ctx.resume().then(start).catch(start); }
-  else { start(); }
+  try{
+    if(ctx.state !== 'running'){ await ctx.resume(); }
+  }catch(e){}
+  const t0 = ctx.currentTime + (delay||0);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  osc.connect(gain); gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(0.3, t0+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.start(t0); osc.stop(t0+dur+0.03);
 }
 function playCorrectSound(){ playTone(523.25,0.15,'sine',0); playTone(783.99,0.22,'sine',0.12); }   // 上行 C5→G5
 function playWrongSound(){ playTone(220,0.25,'square',0); playTone(155.56,0.35,'square',0.13); }     // 低沉下行
