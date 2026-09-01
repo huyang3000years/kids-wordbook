@@ -2849,22 +2849,31 @@ function getAudioCtx(){
   if(!_audioCtx){
     try{ _audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ _audioCtx = null; }
   }
-  if(_audioCtx && _audioCtx.state==='suspended'){ _audioCtx.resume(); }
   return _audioCtx;
+}
+// 预热音频上下文：必须在用户手势内调用，避免浏览器自动播放策略拦截
+function warmAudio(){
+  const ctx = getAudioCtx();
+  if(ctx && ctx.state==='suspended'){ ctx.resume().catch(()=>{}); }
 }
 function playTone(freq, dur, type, delay){
   const ctx = getAudioCtx();
   if(!ctx) return;
-  const t0 = ctx.currentTime + (delay||0);
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = type || 'sine';
-  osc.frequency.value = freq;
-  osc.connect(gain); gain.connect(ctx.destination);
-  gain.gain.setValueAtTime(0.0001, t0);
-  gain.gain.exponentialRampToValueAtTime(0.3, t0+0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
-  osc.start(t0); osc.stop(t0+dur+0.03);
+  // 若上下文处于挂起状态，先 resume 再调度，否则音符会在 currentTime=0 处“还没出声就已结束”
+  const start = ()=>{
+    const t0 = ctx.currentTime + (delay||0);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    osc.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.3, t0+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.start(t0); osc.stop(t0+dur+0.03);
+  };
+  if(ctx.state==='suspended'){ ctx.resume().then(start).catch(start); }
+  else { start(); }
 }
 function playCorrectSound(){ playTone(523.25,0.15,'sine',0); playTone(783.99,0.22,'sine',0.12); }   // 上行 C5→G5
 function playWrongSound(){ playTone(220,0.25,'square',0); playTone(155.56,0.35,'square',0.13); }     // 低沉下行
@@ -2890,6 +2899,7 @@ function playViewWordAudio(){
   if(w) playWordAudio(w.english);
 }
 function startTestGroup(libId, groupId){
+  warmAudio(); // 在用户点击手势内预热音频上下文，确保后续答题有声音
   (async()=>{
     try{
       const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId && p.groupId===groupId));
@@ -2921,6 +2931,7 @@ function startTestGroup(libId, groupId){
   })();
 }
 function startTestLib(libId){
+  warmAudio(); // 在用户点击手势内预热音频上下文，确保后续答题有声音
   const words = state.words.filter(w=>w.placements.some(p=>p.libraryId===libId));
   (async()=>{
     const cands = [];
