@@ -200,6 +200,11 @@ textarea.form-input{resize:vertical;min-height:60px}
   background:var(--primary);color:#fff;font-size:12px;line-height:22px;
   text-align:center;z-index:2;font-weight:700;
 }
+.image-slot .img-size-tiny{
+  position:absolute;bottom:0;left:0;right:0;z-index:2;pointer-events:none;
+  background:rgba(0,0,0,.45);color:#fff;font-size:10px;line-height:14px;
+  text-align:center;padding:1px 0;
+}
 .image-slot .remove-btn{
   position:absolute;top:2px;right:2px;width:28px;height:28px;
   background:rgba(255,0,0,.8);color:#fff;border:none;border-radius:50%;
@@ -2192,6 +2197,7 @@ function renderWordEditImages(){
         <span class="img-order">${i+1}</span>
         <img src="${ew.images[i].data}" alt="" draggable="false" onclick="showImageFullscreen('${ew.images[i].data}')">
         <button class="remove-btn" onclick="removeImageFromEditing(${i})">✕</button>
+        <div class="img-size-tiny">${formatSize(dataUrlBytes(ew.images[i].data))}</div>
       </div>`;
   }
   // 始终保留一个「新增图片」入口（取消张数上限）
