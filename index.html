@@ -205,6 +205,10 @@ textarea.form-input{resize:vertical;min-height:60px}
   background:rgba(0,0,0,.45);color:#fff;font-size:10px;line-height:14px;
   text-align:center;padding:1px 0;
 }
+/* 故事/文章编辑页：图片下方显示该图占用空间的极小号标注 */
+.page-img-size{
+  font-size:10px;line-height:14px;color:#999;text-align:center;margin:2px 0 4px;
+}
 .image-slot .remove-btn{
   position:absolute;top:2px;right:2px;width:28px;height:28px;
   background:rgba(255,0,0,.8);color:#fff;border:none;border-radius:50%;
@@ -3847,6 +3851,7 @@ function renderStoryEditPages(){
         <div class="story-page-num">${i+1}</div>
         <button class="story-page-remove" onclick="removeStoryPage(${i})">✕</button>
         <img src="${p.data}" alt="" onclick="triggerStoryImageReplace(${i})" title="点击替换图片">
+        <div class="page-img-size">${formatSize(dataUrlBytes(p.data))}</div>
         <div class="story-replace-hint">📷 点击图片可替换</div>
         <textarea class="story-prompt-input" placeholder="📝 提示词：这张图讲了什么？可以引导孩子复述..." oninput="state.editingStory.pages[${i}].prompt=this.value">${escapeHtml(p.prompt||'')}</textarea>
       </div>`;
@@ -4619,7 +4624,7 @@ function renderArticleBlocks(){
           <div class="article-block-handle" onpointerdown="articleBlockPointerDown(event, ${i})">⠿</div>
           <div class="article-block-num" style="margin-left:28px">图片 ${i+1}</div>
           <button class="article-block-remove" onclick="removeArticleBlock(${i})">✕</button>
-          ${b.data ? `<img class="article-block-img" src="${b.data}" alt="" onclick="triggerArticleImageReplace(${i})" title="点击替换图片">` : '<div style="color:var(--text-l);padding:20px;text-align:center">图片加载中...</div>'}
+          ${b.data ? `<img class="article-block-img" src="${b.data}" alt="" onclick="triggerArticleImageReplace(${i})" title="点击替换图片"><div class="page-img-size">${formatSize(dataUrlBytes(b.data))}</div>` : '<div style="color:var(--text-l);padding:20px;text-align:center">图片加载中...</div>'}
         </div>`;
     }
   });
