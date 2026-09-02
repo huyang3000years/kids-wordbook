@@ -1410,10 +1410,11 @@ function renderHome(){
     <button class="btn btn-block home-entry home-entry-article" onclick="navigateArticleHome()">📖 文章阅读 (${state.articles.length})</button>
 
     <div class="btn-row" style="margin-top:6px;margin-bottom:20px">
-      <button class="btn btn-blue" onclick="exportBackup()">💾 导出备份</button>
+      <button class="btn btn-blue" onclick="exportBackup()">💾 导出备份<span id="backup-size-label">（计算中…）</span></button>
       <button class="btn btn-blue" onclick="document.getElementById('backup-file-input').click()">📂 导入备份</button>
     </div>
   `;
+  computeBackupSize();
 }
 
 /* ========== 我的词库首页（词库列表） ========== */
@@ -5395,6 +5396,34 @@ async function exportArticleGroup(libId, groupId){
 }
 
 /* ========== Backup ========== */
+/* 实时计算将要导出的备份文件大小，刷新主页时显示于“导出备份”按钮后的括号中 */
+async function computeBackupSize(){
+  const el = document.getElementById('backup-size-label');
+  if(!el) return;
+  try{
+    const images = await dbGetAllImages();
+    const storyImages = await dbGetAllStoryImages();
+    const articleImages = await dbGetAllArticleImages();
+    const backup = {
+      version: 1,
+      exportDate: new Date().toISOString(),
+      libraries: state.libraries,
+      words: state.words,
+      images: images,
+      storyLibs: state.storyLibs,
+      stories: state.stories,
+      storyImages: storyImages,
+      articleLibs: state.articleLibs,
+      articles: state.articles,
+      articleImages: articleImages
+    };
+    const json = JSON.stringify(backup);
+    const bytes = new Blob([json]).size;   // 与导出文件完全一致（Blob 以 UTF-8 编码）
+    el.textContent = '（' + formatSize(bytes) + '）';
+  }catch(e){
+    el.textContent = '';
+  }
+}
 async function exportBackup(){
   showToast('正在准备备份...');
   const images = await dbGetAllImages();
