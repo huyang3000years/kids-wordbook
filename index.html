@@ -3654,10 +3654,9 @@ function renderStoryLib(){
 function navigateStoryGroup(libId, groupId){
   state.currentStoryLibId = libId;
   state.currentStoryGroupId = groupId;
-  renderStoryGroup();
-  showPage('page-story-group');
+  renderStoryGroup().then(()=>showPage('page-story-group'));
 }
-function renderStoryGroup(){
+async function renderStoryGroup(){
   const lib = state.storyLibs.find(l=>l.id===state.currentStoryLibId);
   if(!lib){ navigateStoryHome(); return; }
   const isDefault = state.currentStoryGroupId === 'default';
@@ -3676,6 +3675,8 @@ function renderStoryGroup(){
   const listStories = (sortPref.storyItems && sortPref.storyItems[lib.id] === 'name')
     ? sortByText(stories, 'title')
     : stories.slice().reverse();
+  // 异步统计本分组各故事占用空间（图片 + 文字），用于卡片大小徽标
+  const sizeMap = await computeStorySizeMap();
   document.getElementById('page-story-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateStoryLib('${lib.id}')">←</button>
@@ -3690,7 +3691,7 @@ function renderStoryGroup(){
     <button class="btn btn-green btn-block" style="margin-bottom:16px" onclick="startStoryEdit('${lib.id}','${isDefault ? 'default' : group.id}')">➕ 新建故事到此分组</button>
     <div id="story-group-list"></div>
   `;
-  renderStoryCards('story-group-list', listStories);
+  renderStoryCards('story-group-list', listStories, sizeMap);
 }
 
 /* ===== 故事库/分组管理 ===== */
@@ -4334,10 +4335,9 @@ function renderArticleLib(){
 function navigateArticleGroup(libId, groupId){
   state.currentArticleLibId = libId;
   state.currentArticleGroupId = groupId;
-  renderArticleGroup();
-  showPage('page-article-group');
+  renderArticleGroup().then(()=>showPage('page-article-group'));
 }
-function renderArticleGroup(){
+async function renderArticleGroup(){
   const lib = state.articleLibs.find(l=>l.id===state.currentArticleLibId);
   if(!lib){ navigateArticleHome(); return; }
   const isDefault = state.currentArticleGroupId === 'default';
@@ -4356,6 +4356,8 @@ function renderArticleGroup(){
   const listArticles = (sortPref.articleItems && sortPref.articleItems[lib.id] === 'name')
     ? sortByText(articles, 'title')
     : articles.slice().reverse();
+  // 异步统计本分组各文章占用空间（图片 + 文字），用于卡片大小徽标
+  const sizeMap = await computeArticleSizeMap();
   document.getElementById('page-article-group').innerHTML = `
     <div class="back-bar">
       <button class="back-btn" onclick="navigateArticleLib('${lib.id}')">←</button>
@@ -4371,7 +4373,7 @@ function renderArticleGroup(){
     <button class="btn btn-green btn-block" style="margin-bottom:16px" onclick="startArticleEdit('${lib.id}','${isDefault ? 'default' : group.id}')">➕ 新建文章到此分组</button>
     <div id="article-group-list"></div>
   `;
-  renderArticleCards('article-group-list', listArticles, null, true);
+  renderArticleCards('article-group-list', listArticles, sizeMap, true);
 }
 
 /* ===== 文章库/分组管理 ===== */
