@@ -4583,7 +4583,8 @@ function renderArticleCard(article, sizeMap, ctx){
   const sizeText = size ? formatSize(size.bytes) : (sizeMap ? '0 B' : '');
   const sizeBadge = sizeMap ? `<div class="story-size">📦 ${sizeText}</div>` : '';
   const dragAttr = ctx ? itemDragAttrs('article', ctx.libId, ctx.groupId, article.id) : '';
-  const linkBtn = ctx ? `<button class="item-link-btn" title="打开文章链接" onclick="event.stopPropagation();openArticleLinkById('${article.id}')">🔗</button>` : '';
+  const hasLink = ctx && article.link && article.link.trim();
+  const linkBtn = hasLink ? `<button class="item-link-btn" title="打开文章链接" onclick="event.stopPropagation();openArticleLinkById('${article.id}')">🔗</button>` : '';
   return `
     <div class="story-card" ${dragAttr} onclick="navigateArticleView('${article.id}')">
       <div class="story-cover" id="article-cover-${article.id}">📖</div>
@@ -4594,11 +4595,11 @@ function renderArticleCard(article, sizeMap, ctx){
           ${sizeBadge}
         </div>
       </div>
+      ${linkBtn}
       <div class="article-mark-badges">
         <div class="mark-badge"><span class="mark-emoji">🔴</span><span class="mark-num">${mk.red}</span></div>
         <div class="mark-badge"><span class="mark-emoji">🟡</span><span class="mark-num">${mk.yellow}</span></div>
       </div>
-      ${linkBtn}
     </div>`;
 }
 async function renderArticleCards(containerId, articles, sizeMap, noCovers, ctx){
