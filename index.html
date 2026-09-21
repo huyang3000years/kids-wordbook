@@ -687,6 +687,7 @@ const state = {
   articleViewScrollY: 0,
   articleViewFrom: null,
   articleHomeMode: 'lib',
+  articleSearchQuery: '',
   articleWordViewReturn: null,
   articleWordViewId: null,
   articleDragBlockIndex: null,
@@ -4330,6 +4331,9 @@ async function showAllArticles(){
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn btn-green btn-large" onclick="startArticleEdit(null)">➕ 新建文章</button>
     </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <input type="text" class="form-input" id="article-search-input" placeholder="🔍 搜索文章标题或内容..." autocomplete="off" value="${escapeHtml(state.articleSearchQuery||'')}" oninput="searchArticles(this.value)">
+    </div>
     <div class="btn-row" style="margin-bottom:12px">
       <button class="sort-chip ${nameActive?'active':''}" onclick="toggleAllArticlesSort('name')">🔤 按名称</button>
       <button class="sort-chip ${sizeActive?'active':''}" onclick="toggleAllArticlesSort('size')">📦 按大小</button>
@@ -4342,6 +4346,13 @@ async function showAllArticles(){
 }
 function renderAllArticleList(){
   let articles = state.articles.slice().reverse();   // 原顺序（最新在前）
+  const q = (state.articleSearchQuery || '').trim().toLowerCase();
+  if(q){
+    articles = articles.filter(a=>{
+      const text = (a.title || '') + ' ' + (a.blocks || []).map(b => (b.content || b.caption || '')).join(' ');
+      return text.toLowerCase().includes(q);
+    });
+  }
   const sizeMap = state._articleSizeMap || {};
   const p = getSortPref();
   if(p.articles === 'name'){
@@ -4357,6 +4368,10 @@ function toggleAllArticlesSort(mode){
   const p = getSortPref();
   p.articles = (p.articles === mode) ? null : mode;  // 再次点击同一项取消排序
   saveSortPref(p);
+  renderAllArticleList();
+}
+function searchArticles(query){
+  state.articleSearchQuery = query;
   renderAllArticleList();
 }
 function showFavoriteArticles(){
