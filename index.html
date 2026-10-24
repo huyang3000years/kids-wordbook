@@ -281,6 +281,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .history-date{font-size:15px;font-weight:600;color:var(--text)}
 .history-score{font-size:17px;font-weight:700;color:var(--primary)}
 .history-meta{font-size:14px;color:var(--text-l);margin-top:4px}
+.history-actions{display:flex;align-items:center;gap:10px}
 .test-img-wrap{position:relative;cursor:pointer;border-radius:12px;overflow:hidden}
 .test-img-wrap .review-img{cursor:pointer}
 .test-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:bold;background:rgba(255,255,255,.5);opacity:0;transition:opacity .15s;pointer-events:none}
@@ -3264,7 +3265,10 @@ function renderTestHistory(){
         <div class="history-card">
           <div class="history-head">
             <span class="history-date">🕒 ${dateStr}</span>
-            <span class="history-score">得分 ${score} 分</span>
+            <span class="history-actions">
+              <span class="history-score">得分 ${score} 分</span>
+              <button class="btn btn-small btn-red" title="删除这条记录" onclick="deleteTestHistoryItem('${r.id}')">🗑️</button>
+            </span>
           </div>
           <div class="history-meta">共 ${r.total} 题，答对 ${r.correct} 题${durStr}</div>
           ${wrongHTML}
@@ -3279,6 +3283,14 @@ function renderTestHistory(){
     <div class="section-title" style="margin:12px 0 10px">${escapeHtml(title)}</div>
     ${body}
   `;
+}
+async function deleteTestHistoryItem(id){
+  const ok = await showConfirm('确定删除这条测试记录吗？删除后无法恢复。');
+  if(!ok) return;
+  state.testHistory = (state.testHistory||[]).filter(r => r.id !== id);
+  saveTestHistory();
+  renderTestHistory();
+  showToast('记录已删除');
 }
 
 /* ========== Export to Word ========== */
