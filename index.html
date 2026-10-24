@@ -3037,7 +3037,7 @@ function startTestGroup(libId, groupId){
         showToast('本组至少需要 2 个带图片的单词才能测试');
         return;
       }
-      state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:false };
+      state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:false, startedAt:Date.now(), endedAt:null, historyRecorded:false };
       renderTest();
       showPage('page-test');
     }catch(e){
@@ -3059,7 +3059,7 @@ function startTestLib(libId){
       showToast('本词库至少需要 4 个带图片的单词才能测试');
       return;
     }
-    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:true };
+    state.test = { queue: shuffle(cands), index:0, options:null, answered:false, correctCount:0, wrongWords:[], libTest:true, startedAt:Date.now(), endedAt:null, historyRecorded:false };
     renderTest();
     showPage('page-test');
   })();
@@ -3137,13 +3137,20 @@ function testPick(i){
 function recordTestHistory(){
   if(!state.test) return;
   const t = state.test;
+  // 同一次测试只记录一次：从「答错单词详情」返回完成页时会再次调用 renderTestComplete，
+  // 若不拦截会为同一次测试重复写入多条完全相同的记录。
+  if(t.historyRecorded) return;
+  t.historyRecorded = true;
+  if(!t.endedAt) t.endedAt = Date.now();
+  const durationMs = t.startedAt ? Math.max(0, t.endedAt - t.startedAt) : 0;
   const scope = t.libTest ? 'lib' : 'group';
   const rec = {
     id: genId('th'),
     scope: scope,
     libId: state.currentLibraryId,
     groupId: t.libTest ? null : state.currentGroupId,
-    ts: Date.now(),
+    ts: t.endedAt,
+    durationMs: durationMs,
     total: t.queue.length,
     correct: t.correctCount,
     wrongWords: (t.wrongWords||[]).map(w=>({id:w.id, english:w.english}))
@@ -3153,8 +3160,29 @@ function recordTestHistory(){
   if(state.testHistory.length > 100) state.testHistory = state.testHistory.slice(0,100); // 最多保留 100 条
   saveTestHistory();
 }
+// 测试耗时格式化（精确到分钟）
+function formatDurationMs(ms){
+  if(!ms || ms < 0) return '';
+  if(ms < 60000) return '不到 1 分钟';
+  return Math.floor(ms / 60000) + ' 分钟';
+}
+// 清理历史中重复的测试记录：内容完全一致且时间相差很小的，视为同一次测试被重复写入
+function dedupeTestHistory(list){
+  const sig = r => [r.scope||'', r.libId||'', r.groupId||'', r.total||0, r.correct||0,
+                    (r.wrongWords||[]).map(w=>w.id).join(',')].join('|');
+  const out = [];
+  for(const r of (list||[])){
+    const s = sig(r);
+    const isDup = out.some(o => sig(o) === s && Math.abs((o.ts||0) - (r.ts||0)) < 5*60*1000);
+    if(!isDup) out.push(r);
+  }
+  return out;
+}
 function renderTestComplete(){
   recordTestHistory();
+  const durMs = (state.test && state.test.startedAt && state.test.endedAt)
+    ? Math.max(0, state.test.endedAt - state.test.startedAt) : 0;
+  const durHTML = durMs > 0 ? `<p>⏱️ 本次用时 ${formatDurationMs(durMs)}</p>` : '';
   const wrongList = (state.test && state.test.wrongWords && state.test.wrongWords.length)
     ? `<div class="test-wrong-list"><div class="test-wrong-title">❌ 本次答错的单词（${state.test.wrongWords.length} 个，点击可看详情）</div><div class="test-wrong-words">${state.test.wrongWords.map(w=>`<span class="test-wrong-word" onclick="openTestWrongWord('${w.id}')">${escapeHtml(w.english)}</span>`).join('')}</div></div>`
     : '';
@@ -3164,6 +3192,7 @@ function renderTestComplete(){
     <h2>测试完成！</h2>
     ${state.test ? `<p style="font-size:34px;font-weight:bold;margin:8px 0">得分 ${Math.round(state.test.correctCount/state.test.queue.length*100)} 分</p>` : ''}
     <p>你一共完成了 ${state.test ? state.test.queue.length : 0} 道题，答对 ${state.test ? state.test.correctCount : 0} 道</p>
+    ${durHTML}
     ${wrongList}
       <button class="btn btn-primary btn-large" onclick="endTest()">返回</button>
     </div>
@@ -3224,6 +3253,7 @@ function renderTestHistory(){
       const pad = n => String(n).padStart(2,'0');
       const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       const score = r.total ? Math.round(r.correct/r.total*100) : 0;
+      const durStr = (r.durationMs != null) ? ` · ⏱️ 用时 ${formatDurationMs(r.durationMs)}` : '';
       const wrongHTML = (r.wrongWords && r.wrongWords.length)
         ? `<div class="test-wrong-list" style="margin-top:8px"><div class="test-wrong-title">❌ 答错的单词（${r.wrongWords.length} 个，点击可看详情）</div><div class="test-wrong-words">${r.wrongWords.map(w=>`<span class="test-wrong-word" onclick="openHistoryWrongWord('${w.id}')">${escapeHtml(w.english)}</span>`).join('')}</div></div>`
         : `<div style="margin-top:8px;color:#1B8A5A;font-size:15px;font-weight:600">✅ 全部答对，没有答错的单词</div>`;
@@ -3233,7 +3263,7 @@ function renderTestHistory(){
             <span class="history-date">🕒 ${dateStr}</span>
             <span class="history-score">得分 ${score} 分</span>
           </div>
-          <div class="history-meta">共 ${r.total} 题，答对 ${r.correct} 题</div>
+          <div class="history-meta">共 ${r.total} 题，答对 ${r.correct} 题${durStr}</div>
           ${wrongHTML}
         </div>`;
     }).join('');
@@ -5663,7 +5693,9 @@ function init(){
   state.stories = loadStories();
   state.articleLibs = loadArticleLibs();
   state.articles = loadArticles();
-  state.testHistory = loadTestHistory();
+  // 清理历史遗留的重复测试记录（同内容且时间相近的只保留一条）
+  state.testHistory = dedupeTestHistory(loadTestHistory());
+  saveTestHistory();
   try{ const f = parseInt(localStorage.getItem('wordbook_articleFont'), 10); if(!isNaN(f)) state.articleFontSize = f; }catch(e){}
   renderHome();
   showPage('page-home');
