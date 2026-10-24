@@ -3160,11 +3160,14 @@ function recordTestHistory(){
   if(state.testHistory.length > 100) state.testHistory = state.testHistory.slice(0,100); // 最多保留 100 条
   saveTestHistory();
 }
-// 测试耗时格式化（精确到分钟）
+// 测试耗时格式化（精确到秒）
 function formatDurationMs(ms){
   if(!ms || ms < 0) return '';
-  if(ms < 60000) return '不到 1 分钟';
-  return Math.floor(ms / 60000) + ' 分钟';
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if(min === 0) return sec + ' 秒';
+  return min + ' 分 ' + (sec < 10 ? '0' : '') + sec + ' 秒';
 }
 // 清理历史中重复的测试记录：内容完全一致且时间相差很小的，视为同一次测试被重复写入
 function dedupeTestHistory(list){
